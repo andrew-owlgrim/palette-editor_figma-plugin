@@ -1,0 +1,46 @@
+{
+  "name": "my-colors",
+  "version": "0.1.0",
+  "description": "Figma color palette generator plugin",
+  "scripts": {
+    "build": "build-figma-plugin --typecheck --minify",
+    "watch": "build-figma-plugin --typecheck --watch",
+    "lint": "eslint .",
+    "format": "prettier --write \"src/**/*.{ts,tsx}\""
+  },
+  "figma-plugin": {
+    "id": "",
+    "name": "My Colors",
+    "editorType": [
+      "figma"
+    ],
+    "main": {
+      "src": "src/main.ts",
+      "handler": "default"
+    },
+    "ui": "src/ui.tsx"
+  },
+  "dependencies": {
+    "@create-figma-plugin/ui": "^4",
+    "@create-figma-plugin/utilities": "^4",
+    "@dnd-kit/core": "^6",
+    "@dnd-kit/sortable": "^8",
+    "@dnd-kit/utilities": "^3",
+    "culori": "*",
+    "preact": "^10",
+    "zundo": "^2",
+    "zustand": "^5"
+  },
+  "devDependencies": {
+    "@create-figma-plugin/build": "^4",
+    "@create-figma-plugin/tsconfig": "^4",
+    "@eslint/js": "^9",
+    "@figma/plugin-typings": "*",
+    "@types/culori": "^4.0.1",
+    "eslint": "^9",
+    "eslint-config-prettier": "^9",
+    "prettier": "^3",
+    "typescript": "^5",
+    "typescript-eslint": "^8"
+  }
+}
