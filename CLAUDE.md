@@ -31,6 +31,7 @@ superseded/removed entry to a one-line tombstone instead of deleting it.
 - `src/components/<Name>/` — one component + its `.css` (CSS Module) per folder
 - `src/color/models.ts` — input-color-model registry + culori conversions
 - `src/color/naming.ts` (+ `colorNames.data.ts`) — auto color naming (vendored ntc, nearest sRGB)
+- `src/color/harmony.ts` — generate a new color harmonious with a set (max-min in OKLab)
 - `src/store/index.ts` — zustand + zundo store (the palette document)
 - `src/store/selection.ts` — ephemeral canvas-selection fills (out of undo/persist)
 - `src/utils/storage.ts` — `clientStorage` / `sharedPluginData` wrappers

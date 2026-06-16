@@ -1,4 +1,9 @@
-import { IconButton, IconEyedropperSmall24, IconTrash24 } from '@create-figma-plugin/ui'
+import {
+  IconButton,
+  IconEyedropperSmall24,
+  IconShuffleSmall24,
+  IconTrash24,
+} from '@create-figma-plugin/ui'
 import { useRef, useState } from 'preact/hooks'
 import { ColorPicker } from '@/components/ColorPicker/ColorPicker'
 import { ColorSample } from '@/components/ColorSample/ColorSample'
@@ -18,6 +23,7 @@ interface KeyColorCardProps {
 
 export function KeyColorCard({ keyColor }: KeyColorCardProps) {
   const removeKeyColor = usePaletteStore((s) => s.removeKeyColor)
+  const rerollKeyColor = usePaletteStore((s) => s.rerollKeyColor)
   const setKeyColorName = usePaletteStore((s) => s.setKeyColorName)
   const setKeyColorFromHex = usePaletteStore((s) => s.setKeyColorFromHex)
   const selectionFills = useSelectionStore((s) => s.fills)
@@ -35,6 +41,13 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
           <ColorSample hex={hex} onClick={() => setPickerOpen((open) => !open)} />
         </div>
         <div class={styles.actionRow}>
+          <div class={styles.action}>
+            <Tooltip content="Reroll color">
+              <IconButton onClick={() => rerollKeyColor(keyColor.id)}>
+                <IconShuffleSmall24 />
+              </IconButton>
+            </Tooltip>
+          </div>
           {selectionFills.length > 0 ? (
             <div class={styles.action}>
               <Tooltip content="Use color from selection">

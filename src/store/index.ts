@@ -11,6 +11,7 @@ import type {
   PersistedKeyColor,
 } from '@/types'
 import { channelsToColor, colorToChannels, hexToColor } from '@/color/models'
+import { harmoniousColor } from '@/color/harmony'
 
 let idCounter = 0
 function newId(): string {
@@ -34,6 +35,8 @@ interface PaletteActions {
   hydrate: (document: PersistedDocument) => void
   addKeyColor: () => void
   addKeyColors: (hexes: string[]) => void
+  // Replace one key color with a fresh random-but-harmonious one (auto-named).
+  rerollKeyColor: (id: string) => void
   removeKeyColor: (id: string) => void
   // null = revert to auto-naming; a string = pin a custom name.
   setKeyColorName: (id: string, name: string | null) => void
@@ -66,7 +69,8 @@ export const usePaletteStore = create<PaletteStore>()(
 
       addKeyColor: () =>
         set((state) => {
-          const color = hexToColor('#ffffff')
+          // Pick a color that fits the existing row (random for an empty one).
+          const color = harmoniousColor(state.keyColors.map((k) => k.color))
           return {
             keyColors: [
               ...state.keyColors,
@@ -97,6 +101,27 @@ export const usePaletteStore = create<PaletteStore>()(
             }),
           ],
         })),
+
+      // Reroll: a fresh color harmonious with the *other* key colors (self
+      // excluded so it can move into a gap). Reverts to auto-naming so the name
+      // follows the new color.
+      rerollKeyColor: (id) =>
+        set((state) => {
+          const others = state.keyColors.filter((k) => k.id !== id).map((k) => k.color)
+          const color = harmoniousColor(others)
+          return {
+            keyColors: state.keyColors.map((k) =>
+              k.id === id
+                ? {
+                    ...k,
+                    color,
+                    customName: null,
+                    channels: colorToChannels(color, state.settings.inputColorModel),
+                  }
+                : k,
+            ),
+          }
+        }),
 
       removeKeyColor: (id) =>
         set((state) => ({ keyColors: state.keyColors.filter((k) => k.id !== id) })),

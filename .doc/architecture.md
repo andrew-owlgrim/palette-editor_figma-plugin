@@ -112,6 +112,16 @@ export-ready by default.
   non-empty → pins it. Escape cancels. While not focused it shows `value`, so the
   auto name updates live.
 
+## Harmonious color generation — `src/color/harmony.ts` (ADR-018)
+
+`harmoniousColor(existing)` returns a color that fits an arbitrary existing set:
+best-candidate / farthest-point sampling — draw random candidates and keep the
+one whose nearest existing color is most distant in OKLab. Lightness is bounded
+to the central ~60% (OKLCH `L ∈ [0.2, 0.8]`) so colors keep tonal headroom; hue
+and chroma are free (out-of-gamut chroma reduced via `toGamut`). Random by design
+(empty set → random). Used by `addKeyColor` and the per-card reroll
+(`rerollKeyColor`, which excludes the rerolled color and reverts it to auto-name).
+
 ## Store — `src/store/index.ts`
 
 `zustand` store wrapped in `zundo`'s `temporal`. State = `PaletteDocument`
@@ -119,8 +129,10 @@ export-ready by default.
 
 - `hydrate(document)` — normalize a `PersistedDocument` into runtime key colors
   (re-derive `channels` from `color`; migrate older files lacking `color`).
-- `addKeyColor` (white, at end), `addKeyColors(hexes)` (bulk add in one update =
-  one undo step; used by "add matching"), `removeKeyColor`,
+- `addKeyColor` (harmonious, at end — see ADR-018), `addKeyColors(hexes)` (bulk
+  add in one update = one undo step; used by "add matching"),
+  `rerollKeyColor(id)` (replace one with a fresh harmonious color, auto-named),
+  `removeKeyColor`,
   `setKeyColorName(id, name | null)` (pin a custom name, or null = auto),
   `setKeyColorChannel` / `setKeyColorChannels` (update buffer + recompute `color`),
   `setKeyColorFromHex` (set `color` + re-derive channels).
@@ -197,7 +209,7 @@ App (app/App.tsx)
     │                       (auto-scrolls to reveal new card(s) on add)
     └── KeyColorCard        swatch (top) · action row (hover) · NameInput (footer)
         ├── ColorSample     fills the card top → opens the color picker popover
-        ├── action row      eyedropper (when selection has a fill) · trash
+        ├── action row      reroll · eyedropper (when selection has a fill) · trash
         ├── NameInput       ghost field; auto name unless a custom one is pinned
         └── Popover         (right-top, anchored to the swatch)
             └── ColorPicker  HueWheel · Gradient · GhostInput hex · ChannelInputs

@@ -4,6 +4,11 @@ Volatile working state. Last updated: 2026-06-16.
 
 ## Done
 
+- **Harmonious color generation** (ADR-018): `color/harmony.ts`
+  `harmoniousColor(existing)` — max-min (farthest-point) over random candidates
+  in OKLab, lightness-bounded to the central ~60%. Used by `addKeyColor` (was
+  white) and a per-card **reroll** button (`rerollKeyColor`, excludes self,
+  reverts to auto-name).
 - **Icon-button tooltips** (ADR-017): `components/Tooltip` on `@floating-ui/dom`
   (offset/flip/shift/arrow, `fixed` strategy, 400 ms hover delay, keyboard
   `:focus-visible`); Figma-style dark bubble; wraps every icon button incl.

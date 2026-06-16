@@ -159,3 +159,19 @@ Amends the persistence note in ADR-013.
   therefore tracked via a global `pointermove` (target-containment) as the trusted
   signal for both show and hide; tooltips must also work on disabled buttons
   (`.trigger :disabled { pointer-events: none }`).
+
+## ADR-018 — Harmonious color generation (max-min in OKLab)
+
+- **Context:** "add key color" and per-card "reroll" need a new color that fits
+  an *arbitrary* existing set. Fixed schemes (analogous/triad/tetrad) don't
+  generalize to a random array, and the goal is pleasant, non-garish **variety**
+  — not a deterministic "correct" color (which risks being boring).
+- **Decision:** `color/harmony.ts` `harmoniousColor(existing)` — best-candidate /
+  farthest-point: draw N random candidates, keep the one whose nearest existing
+  color is farthest in OKLab (ΔEok). Random by design (reroll differs each time).
+  Constrain **only lightness** (OKLCH L ∈ [0.2, 0.8], central ~60%) so colors
+  keep tonal-scale headroom; hue/chroma stay free (out-of-gamut chroma reduced
+  via `toGamut`). Reroll excludes the rerolled color and reverts it to auto-name.
+- **Consequence:** works at any count (empty → random, one → a distant partner);
+  intentionally non-deterministic; envelope is tunable. Rejected hue-template
+  schemes and a "matched L/C + hue-gap" hybrid as too rigid/boring.
