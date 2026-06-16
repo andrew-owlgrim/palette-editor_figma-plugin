@@ -1,14 +1,24 @@
-.popover {
-  position: absolute;
-  top: calc(100% + 4px);
-  right: 0;
+.popover,
+.floating {
   z-index: 10;
-  min-width: 220px;
-  padding: 12px;
   background-color: var(--figma-color-bg);
   border: 1px solid var(--figma-color-border);
   border-radius: 6px;
   box-shadow:
     0 2px 4px rgba(0, 0, 0, 0.15),
     0 4px 16px rgba(0, 0, 0, 0.2);
+}
+
+.popover {
+  position: absolute;
+  top: calc(100% + 4px);
+  right: 0;
+  min-width: 220px;
+  padding: 12px;
+}
+
+/* Anchored variant: positioned (fixed) from the trigger's bounding rect, so it
+   escapes any card overflow. Inline left/top come from the component. */
+.floating {
+  position: fixed;
 }

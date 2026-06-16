@@ -1,0 +1,9 @@
+.wheel {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 50%;
+  touch-action: none;
+  cursor: crosshair;
+  user-select: none;
+}

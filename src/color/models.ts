@@ -21,9 +21,20 @@ export interface ChannelDef {
   integer?: boolean
 }
 
+// Maps the three channels of a model onto the polar color-picker axes:
+// `angle` = hue (wheel angle), `radius` = saturation/chroma (center → edge),
+// `axis` = lightness/value (the 1D gradient slider). Lets the picker stay
+// model-agnostic — it reads/writes channels by role, not by hard-coded id.
+export interface PickerAxes {
+  angle: string
+  radius: string
+  axis: string
+}
+
 export interface ColorModelDef {
   id: InputColorModel
   channels: ChannelDef[]
+  picker: PickerAxes
   toChannels: (color: Color) => ColorChannels
   fromChannels: (channels: ColorChannels) => Color
 }
@@ -49,6 +60,7 @@ export const MODELS: Record<InputColorModel, ColorModelDef> = {
       { id: 's', label: 'S', minimum: 0, maximum: 100, integer: true },
       { id: 'l', label: 'L', minimum: 0, maximum: 100, integer: true },
     ],
+    picker: { angle: 'h', radius: 's', axis: 'l' },
     toChannels(color) {
       const c = toHsl(toSrgb(color))
       return {
@@ -68,6 +80,7 @@ export const MODELS: Record<InputColorModel, ColorModelDef> = {
       { id: 's', label: 'S', minimum: 0, maximum: 100, integer: true },
       { id: 'v', label: 'V', minimum: 0, maximum: 100, integer: true },
     ],
+    picker: { angle: 'h', radius: 's', axis: 'v' },
     toChannels(color) {
       const c = toHsv(toSrgb(color))
       return {
@@ -87,6 +100,7 @@ export const MODELS: Record<InputColorModel, ColorModelDef> = {
       { id: 'c', label: 'C', minimum: 0, maximum: 150 },
       { id: 'h', label: 'H', minimum: 0, maximum: 360, integer: true },
     ],
+    picker: { angle: 'h', radius: 'c', axis: 'l' },
     toChannels(color) {
       const c = toLch(color)
       return {
@@ -99,6 +113,13 @@ export const MODELS: Record<InputColorModel, ColorModelDef> = {
       return { mode: 'lch', l: num(ch.l), c: num(ch.c), h: num(ch.h) }
     },
   },
+}
+
+// Clamp + round a numeric channel value into a display string honoring the
+// channel's range and integer-ness. Used by the picker when a drag produces a
+// raw numeric value that must become a channel string.
+export function formatChannel(value: number, def: ChannelDef): string {
+  return fmt(value, def.integer === true ? 0 : 1, def.minimum, def.maximum)
 }
 
 // Build a 6-digit hex from raw channels (naive sRGB clamp via formatHex).

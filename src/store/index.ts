@@ -1,7 +1,7 @@
 import { create, useStore } from 'zustand'
 import { temporal } from 'zundo'
 import type { TemporalState } from 'zundo'
-import type { BlendingColorModel, InputColorModel, PaletteDocument } from '@/types'
+import type { BlendingColorModel, ColorChannels, InputColorModel, PaletteDocument } from '@/types'
 import { hexToChannels, recomputeChannels } from '@/color/models'
 
 let idCounter = 0
@@ -16,6 +16,7 @@ interface PaletteActions {
   removeKeyColor: (id: string) => void
   renameKeyColor: (id: string, name: string) => void
   setKeyColorChannel: (id: string, channelId: string, value: string) => void
+  setKeyColorChannels: (id: string, channels: ColorChannels) => void
   setKeyColorFromHex: (id: string, hex: string) => void
   setInputColorModel: (model: InputColorModel) => void
   setBlendingColorModel: (model: BlendingColorModel) => void
@@ -59,6 +60,16 @@ export const usePaletteStore = create<PaletteStore>()(
         set((state) => ({
           keyColors: state.keyColors.map((k) =>
             k.id === id ? { ...k, channels: { ...k.channels, [channelId]: value } } : k,
+          ),
+        })),
+
+      // Patch several channels of one key color in a single update — used by
+      // the color picker's wheel drag (hue + saturation move together), so it
+      // lands as one undo step / one save.
+      setKeyColorChannels: (id, channels) =>
+        set((state) => ({
+          keyColors: state.keyColors.map((k) =>
+            k.id === id ? { ...k, channels: { ...k.channels, ...channels } } : k,
           ),
         })),
 

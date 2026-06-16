@@ -25,16 +25,3 @@
   flex-direction: column;
   gap: 4px;
 }
-
-.channelRow {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.channelLabel {
-  width: 14px;
-  flex: 0 0 auto;
-  font-size: 11px;
-  color: var(--figma-color-text-secondary);
-}

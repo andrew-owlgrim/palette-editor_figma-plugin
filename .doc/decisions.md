@@ -162,3 +162,67 @@ string (on blur/arrow), so `"50%"` leaked into the raw channel values.
 indicator, if wanted, should be static text outside the input.
 
 **Consequences:** Clean numeric raw values; the `%` artifact is gone.
+
+---
+
+## ADR-011 — Custom color picker; raw pointer drag (not DnD Kit)
+
+**Date:** 2026-06-16 · **Status:** accepted
+
+**Context:** Needed a custom color picker (hue wheel + lightness gradient +
+channel inputs) in a popover. The DS has no popover and no draggable
+wheel/slider; DnD Kit (already a dependency, "planned use") is list/sortable-
+oriented and awkward for constrained radial/linear dragging.
+
+**Decision:** Build it from small pieces, all CSS-rendered (no canvas):
+- `HueWheel` — `conic-gradient` hue + radial-white saturation overlay; polar
+  geometry in `color/picker.ts`. Hue 225° sits at top (`ANGLE_OFFSET_DEG`,
+  cosmetic; shared by background + handle math).
+- `Gradient` — universal controlled 1D slider; the consumer supplies the CSS
+  track background (`buildAxisGradient` samples the model's lightness/value axis
+  to hex), the component owns the handle.
+- `Handle` — presentational dot; `draggable` shows a color sample, otherwise a
+  plain white dot (used to mark other key colors on the wheel).
+- `usePointerDrag` — pointer-capture drag on the track element; constraints
+  (clamp into circle / onto line) live in each consumer. Chosen over DnD Kit.
+- `GhostInput` — borderless hex field that reveals a border on hover/focus
+  (mirrors `Textbox` states); validates/normalizes via culori on blur/Escape.
+- `ChannelInput` — `TextboxNumeric` with the channel label in the DS `icon`
+  slot (label-inside-input), reused by the picker and `KeyColorCard`.
+- Model-agnostic via `picker: { angle, radius, axis }` on each `ColorModelDef`.
+
+The `Popover` gained a `right-top` placement: when given an `anchorRef` it
+positions `fixed` from the trigger's bounding rect (escapes card overflow);
+without one it keeps the original CSS-anchored behavior.
+
+**Consequences:** No canvas, cheap per-frame work (trig + a transform). Wheel
+tint is sRGB-approximate for LCH (handle value stays correct). LCH chroma radius
+is linear `c / 150`; out-of-gamut points clamp on conversion (same behavior as
+the numeric input). New store action `setKeyColorChannels` writes hue+saturation
+together so a wheel drag is one undo step / one save. DnD Kit remains unused.
+
+---
+
+## ADR-012 — Coalesce live edits into one undo step
+
+**Date:** 2026-06-16 · **Status:** accepted
+
+**Context:** A wheel/gradient drag and per-keystroke channel edits each fire many
+store updates; zundo records every change, so a single drag or field edit
+produced dozens of undo entries. Desired checkpoints: the state *between* a
+completed drag and an input blur. Pausing zundo around the interaction alone
+loses the pre-edit state (it was the "present" and gets overwritten while
+paused, never pushed to `pastStates`).
+
+**Decision:** `src/store/history.ts` exposes `beginLiveEdit` / `endLiveEdit`.
+Begin snapshots `{ keyColors, settings }` and `pause()`s tracking; end `resume()`s
+and, if the doc changed, pushes that one snapshot directly onto the temporal
+store (`usePaletteStore.temporal.setState`, appending `pastStates` + clearing
+`futureStates`), mirroring zundo's own `_handleSet`. Drags call them via
+`onDragStart`/`onDragEnd` (forwarded through `HueWheel`/`Gradient`); channel
+fields call them on focus/blur. Re-entrant calls keep the first snapshot.
+
+**Consequences:** One undo step per drag / per field edit. The hex `GhostInput`
+needs no wrapping (it commits once on blur). Pointer-drag listeners live on
+`window` (in `usePointerDrag`) so a drag keeps tracking outside the element and
+never sticks on an out-of-bounds release.

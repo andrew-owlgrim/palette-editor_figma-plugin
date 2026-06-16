@@ -91,6 +91,10 @@ functions), `equality` via `JSON.stringify` (skip identical history entries),
 `useTemporalStore(selector)` = `useStore(usePaletteStore.temporal, selector)`,
 typed over `TemporalState<PaletteDocument>`.
 
+**Live-edit batching — `src/store/history.ts`:** `beginLiveEdit`/`endLiveEdit`
+pause zundo during a drag or field edit and commit a single pre-edit snapshot on
+release/blur, so each interaction is one undo step (ADR-012).
+
 ## Persistence — `src/utils/storage.ts` + `main.ts` + `App.tsx`
 
 Per-file, **load-on-open + save-on-change** (no live concurrent multi-user sync).
@@ -114,19 +118,31 @@ kept for a possible future per-user feature.
 ```
 App (app/App.tsx)
 ├── Header                 undo/redo (left) · settings gear (right)
-│   └── Popover            generic anchored popover (outside-click + Esc)
+│   └── Popover            custom anchored popover (outside-click + Esc)
 │       └── SettingsPopover  two SegmentedControls (input / blending model)
 └── KeyColorsSection       "Key colors" header + "+" · horizontal card list
-    └── KeyColorCard        ColorSample · delete · name · channel inputs
-        └── ColorSample     square swatch → native color picker (placeholder)
+    └── KeyColorCard        ColorSample · delete · name · ChannelInputs
+        ├── ColorSample     square swatch → opens the color picker popover
+        └── Popover         (right-top, anchored to the swatch)
+            └── ColorPicker  GhostInput hex · HueWheel · Gradient · ChannelInputs
+                ├── HueWheel   conic hue + radial saturation; Handles (active + dots)
+                ├── Gradient   universal 1D slider (lightness/value axis); Handle
+                ├── Handle     white dot, optional color sample (draggable)
+                └── ChannelInput  TextboxNumeric w/ label in the DS `icon` slot
 ```
 
+- Picker geometry + channel↔axis mapping: `src/color/picker.ts`. Drag binding:
+  `src/hooks/usePointerDrag.ts` (pointer capture). Each `ColorModelDef` carries a
+  `picker: { angle, radius, axis }` so the picker is model-agnostic. See ADR-011.
 - DS components used: `IconButton`, `SegmentedControl`, `Textbox`,
   `TextboxNumeric` (its string `value` + `onValueInput` map directly to raw
-  channels). Icons carry a numeric suffix: `IconSettings24`, `IconPlusSmall24`,
-  `IconTrash24`, `IconNavigateBack24` / `…Forward24`.
+  channels; its `icon` slot holds the channel label). Icons carry a numeric
+  suffix: `IconSettings24`, `IconPlusSmall24`, `IconTrash24`, `IconClose24`,
+  `IconNavigateBack24` / `…Forward24`.
 - There is **no** native Popover in the DS, so `components/Popover` is a small
-  custom one (plain `useEffect`: outside-click via `containerRef.contains` + Escape).
+  custom one (plain `useEffect`: outside-click via `containerRef.contains` +
+  Escape). With an `anchorRef` it positions `fixed` from the trigger rect
+  (`placement="right-top"`); without one it keeps the CSS-anchored default.
 - Transient UI state (popover open, etc.) lives in component `useState`, never in
   the store — so it stays out of undo history and persistence.
 

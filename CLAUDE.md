@@ -11,6 +11,7 @@ Detail lives in `.doc/` — keep this file thin, don't duplicate.
 - [.doc/product.md](.doc/product.md) — what the plugin does, why, UX intentions
 - [.doc/architecture.md](.doc/architecture.md) — data model, module map, threads, build specifics
 - [.doc/tasks.md](.doc/tasks.md) — active work + status (volatile)
+- [.doc/backlog.md](.doc/backlog.md) — deferred / potential tasks (no owner or deadline)
 - [.doc/decisions.md](.doc/decisions.md) — decision log (ADR, append-only)
 
 ## Module map

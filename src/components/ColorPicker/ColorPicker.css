@@ -1,0 +1,28 @@
+.picker {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  width: 240px;
+  padding: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.header > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.channels {
+  display: flex;
+  gap: 6px;
+}
+
+.channels > * {
+  flex: 1 1 0;
+  min-width: 0;
+}
