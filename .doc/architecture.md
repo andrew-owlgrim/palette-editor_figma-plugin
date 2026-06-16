@@ -136,13 +136,15 @@ App (app/App.tsx)
 │   └── Popover            custom anchored popover (outside-click + Esc)
 │       └── SettingsPopover  two SegmentedControls (input / blending model)
 └── KeyColorsSection       "Key colors" header + "+" · horizontal card list
-    └── KeyColorCard        ColorSample · delete · name · ChannelInputs
-        ├── ColorSample     square swatch → opens the color picker popover
+    │                       (auto-scrolls to reveal the new card on add)
+    └── KeyColorCard        swatch (top) · ghost name (footer) · trash chip (hover)
+        ├── ColorSample     fills the card top → opens the color picker popover
         └── Popover         (right-top, anchored to the swatch)
-            └── ColorPicker  GhostInput hex · HueWheel · Gradient · ChannelInputs
-                ├── HueWheel   model-aware conic hue + radial saturation; Handles (active + dots)
+            └── ColorPicker  HueWheel · Gradient · GhostInput hex · ChannelInputs
+                ├── HueWheel   model-aware conic hue + radial saturation, hairline ring; Handles (active + dots)
                 ├── Gradient   universal 1D slider (lightness/value axis); Handle
                 ├── Handle     white dot, optional color sample (draggable)
+                ├── GhostInput hex field — '#' as the icon-slot label, value without '#'
                 └── ChannelInput  TextboxNumeric w/ label in the DS `icon` slot
 ```
 
@@ -157,10 +159,17 @@ App (app/App.tsx)
   model's own hue scale — LCH hue ≠ HSL hue). All display hex goes through
   gamut mapping (`colorToHex`/`channelsToHex` → `toGamut('rgb','oklch')`), so
   out-of-sRGB colors reduce chroma toward gray instead of clamping to over-bright.
-- DS components used: `IconButton`, `SegmentedControl`, `Textbox`,
-  `TextboxNumeric` (its string `value` + `onValueInput` map directly to raw
-  channels; its `icon` slot holds the channel label). Icons carry a numeric
-  suffix: `IconSettings24`, `IconPlusSmall24`, `IconTrash24`, `IconClose24`,
+- **Card vs picker:** the card shows only the swatch + a borderless ("ghost")
+  name field; the trash chip is a white bordered tile revealed on card hover. All
+  channel editing lives in the picker, not the card. The picker has **no close
+  button** — it closes via outside-click or a re-click on the swatch (toggled in
+  `KeyColorCard`). `GhostInput` is the hex field, styled like a DS Textbox (filled,
+  `#` in the icon slot); it edits bare digits and re-adds `#` for parsing.
+- DS components used: `IconButton`, `SegmentedControl`, `TextboxNumeric` (its
+  string `value` + `onValueInput` map directly to raw channels; its `icon` slot
+  holds the channel label). Name and hex fields are plain `<input>`s (ghost /
+  DS-look) rather than DS `Textbox`. Icons carry a numeric suffix:
+  `IconSettings24`, `IconPlusSmall24`, `IconTrash24`,
   `IconNavigateBack24` / `…Forward24`.
 - There is **no** native Popover in the DS, so `components/Popover` is a small
   custom one (plain `useEffect`: outside-click via `containerRef.contains` +

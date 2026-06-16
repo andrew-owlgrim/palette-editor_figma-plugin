@@ -1,27 +1,71 @@
 .card {
   display: flex;
   flex-direction: column;
-  gap: 8px;
   flex: 0 0 auto;
-  width: 168px;
-  padding: 8px;
-  background-color: var(--figma-color-bg-secondary);
+  width: 160px;
+  height: 160px;
+  background-color: var(--figma-color-bg);
   border: 1px solid var(--figma-color-border);
-  border-radius: 6px;
+  border-radius: 8px;
+  /* Clip the swatch's top corners to the card radius. */
+  overflow: hidden;
 }
 
-.sampleRow {
+.swatch {
   position: relative;
+  flex: 1 0 0;
+  min-height: 0;
 }
 
+.anchor {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Trash chip: hidden until the card is hovered, then a white tile with a border. */
 .deleteButton {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 8px;
+  right: 8px;
+  opacity: 0;
+  background-color: var(--figma-color-bg);
+  border: 1px solid var(--figma-color-border);
+  border-radius: 6px;
+  overflow: hidden;
+  transition: opacity 80ms ease;
 }
 
-.channels {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
+.card:hover .deleteButton,
+.deleteButton:focus-within {
+  opacity: 1;
+}
+
+.footer {
+  padding: 6px 8px 8px;
+}
+
+/* Ghost name field: borderless at rest, border revealed on hover/focus. */
+.name {
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  font-family: inherit;
+  color: var(--figma-color-text);
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  outline: none;
+}
+
+.name::placeholder {
+  color: var(--figma-color-text-tertiary);
+}
+
+.name:hover {
+  border-color: var(--figma-color-border);
+}
+
+.name:focus {
+  border-color: var(--figma-color-border-selected);
 }

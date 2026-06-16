@@ -1,15 +1,31 @@
+/* Mirrors the DS Textbox: filled bg, transparent border revealed on hover/focus,
+   the '#' sitting in the icon slot (absolute, left-aligned like DS icons). */
+.field {
+  position: relative;
+}
+
+.tag {
+  position: absolute;
+  top: 50%;
+  left: 12px;
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--figma-color-text-secondary);
+  pointer-events: none;
+}
+
 .input {
+  display: block;
   width: 100%;
+  height: 24px;
   margin: 0;
-  padding: 4px 6px;
+  padding: 0 7px 0 23px;
   font-family: inherit;
-  /* One step up from the standard Textbox (11px / 400) in the DS type tokens. */
-  font-size: var(--font-size-12, 12px);
-  font-weight: var(--font-weight-bold, 600);
   letter-spacing: 0.02em;
   text-transform: uppercase;
   color: var(--figma-color-text);
-  background-color: transparent;
+  background-color: var(--figma-color-bg-secondary);
   border: 1px solid transparent;
   border-radius: 4px;
   outline: none;

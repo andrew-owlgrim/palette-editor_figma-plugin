@@ -1,4 +1,3 @@
-import { IconButton, IconClose24 } from '@create-figma-plugin/ui'
 import { ChannelInput } from '@/components/ChannelInput/ChannelInput'
 import { GhostInput } from '@/components/GhostInput/GhostInput'
 import { Gradient } from '@/components/Gradient/Gradient'
@@ -19,10 +18,11 @@ import styles from './ColorPicker.css'
 
 interface ColorPickerProps {
   keyColorId: string
-  onClose: () => void
 }
 
-export function ColorPicker({ keyColorId, onClose }: ColorPickerProps) {
+// Closed via outside-click or a re-click on the swatch (handled by the Popover /
+// KeyColorCard) — no explicit close button.
+export function ColorPicker({ keyColorId }: ColorPickerProps) {
   const model = usePaletteStore((s) => s.settings.inputColorModel)
   const keyColors = usePaletteStore((s) => s.keyColors)
   const setKeyColorChannel = usePaletteStore((s) => s.setKeyColorChannel)
@@ -54,13 +54,6 @@ export function ColorPicker({ keyColorId, onClose }: ColorPickerProps) {
 
   return (
     <div class={styles.picker}>
-      <div class={styles.header}>
-        <GhostInput value={hex} onChange={(value) => setKeyColorFromHex(keyColorId, value)} />
-        <IconButton onClick={onClose}>
-          <IconClose24 />
-        </IconButton>
-      </div>
-
       <HueWheel
         hue={hue}
         radius01={radius01}
@@ -85,6 +78,8 @@ export function ColorPicker({ keyColorId, onClose }: ColorPickerProps) {
         onDragStart={beginLiveEdit}
         onDragEnd={endLiveEdit}
       />
+
+      <GhostInput value={hex} onChange={(value) => setKeyColorFromHex(keyColorId, value)} />
 
       <div class={styles.channels}>
         {channelDefs.map((channel) => (

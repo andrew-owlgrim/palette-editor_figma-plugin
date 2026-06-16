@@ -1,10 +1,9 @@
-import { IconButton, IconTrash24, Textbox } from '@create-figma-plugin/ui'
+import { IconButton, IconTrash24 } from '@create-figma-plugin/ui'
 import { useRef, useState } from 'preact/hooks'
-import { ChannelInput } from '@/components/ChannelInput/ChannelInput'
 import { ColorPicker } from '@/components/ColorPicker/ColorPicker'
 import { ColorSample } from '@/components/ColorSample/ColorSample'
 import { Popover } from '@/components/Popover/Popover'
-import { colorToHex, MODELS } from '@/color/models'
+import { colorToHex } from '@/color/models'
 import { usePaletteStore } from '@/store'
 import type { KeyColor } from '@/types'
 import styles from './KeyColorCard.css'
@@ -14,22 +13,19 @@ interface KeyColorCardProps {
 }
 
 export function KeyColorCard({ keyColor }: KeyColorCardProps) {
-  const inputColorModel = usePaletteStore((s) => s.settings.inputColorModel)
   const removeKeyColor = usePaletteStore((s) => s.removeKeyColor)
   const renameKeyColor = usePaletteStore((s) => s.renameKeyColor)
-  const setKeyColorChannel = usePaletteStore((s) => s.setKeyColorChannel)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const anchorRef = useRef<HTMLDivElement>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
 
-  const channelDefs = MODELS[inputColorModel].channels
   const hex = colorToHex(keyColor.color)
 
   return (
     <div class={styles.card}>
-      <div class={styles.sampleRow} ref={containerRef}>
-        <div ref={anchorRef}>
+      <div class={styles.swatch} ref={containerRef}>
+        <div class={styles.anchor} ref={anchorRef}>
           <ColorSample hex={hex} onClick={() => setPickerOpen((open) => !open)} />
         </div>
         <div class={styles.deleteButton}>
@@ -44,25 +40,19 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
           anchorRef={anchorRef}
           placement="right-top"
         >
-          <ColorPicker keyColorId={keyColor.id} onClose={() => setPickerOpen(false)} />
+          <ColorPicker keyColorId={keyColor.id} />
         </Popover>
       </div>
 
-      <Textbox
-        value={keyColor.name}
-        placeholder="Name"
-        onValueInput={(value) => renameKeyColor(keyColor.id, value)}
-      />
-
-      <div class={styles.channels}>
-        {channelDefs.map((channel) => (
-          <ChannelInput
-            key={channel.id}
-            channel={channel}
-            value={keyColor.channels[channel.id] ?? ''}
-            onValueInput={(value) => setKeyColorChannel(keyColor.id, channel.id, value)}
-          />
-        ))}
+      <div class={styles.footer}>
+        <input
+          class={styles.name}
+          type="text"
+          value={keyColor.name}
+          placeholder="Name"
+          spellcheck={false}
+          onInput={(event) => renameKeyColor(keyColor.id, event.currentTarget.value)}
+        />
       </div>
     </div>
   )
