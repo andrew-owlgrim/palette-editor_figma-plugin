@@ -20,7 +20,9 @@ Detail lives in `.doc/` — keep this file thin, don't duplicate.
 - `src/ui.tsx` → `src/app/App.tsx` — UI root; hydrate + debounced save subscription
 - `src/components/<Name>/` — one component + its `.css` (CSS Module) per folder
 - `src/color/models.ts` — input-color-model registry + culori conversions
+- `src/color/naming.ts` (+ `colorNames.data.ts`) — auto color naming (vendored ntc, nearest sRGB)
 - `src/store/index.ts` — zustand + zundo store (the palette document)
+- `src/store/selection.ts` — ephemeral canvas-selection fills (out of undo/persist)
 - `src/utils/storage.ts` — `clientStorage` / `sharedPluginData` wrappers
 - `src/types/` — domain types + ambient `*.svg` / `*.css` declarations
 

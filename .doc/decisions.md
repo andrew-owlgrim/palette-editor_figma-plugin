@@ -237,7 +237,8 @@ never sticks on an out-of-bounds release.
 
 ## ADR-013 — Canonical float-rgb color as the source of truth
 
-**Date:** 2026-06-16 · **Status:** accepted (supersedes ADR-005)
+**Date:** 2026-06-16 · **Status:** accepted (supersedes ADR-005; persistence later
+amended by [ADR-015](#adr-015--auto-color-naming-derive-on-read-vendored-ntc-nearest-srgb) — `name` → `customName`)
 
 **Context:** Channels-as-source-of-truth (ADR-005) is lossy: every input-model
 switch round-trips `channels → culori → channels` (rounded/clamped), so
@@ -315,3 +316,60 @@ as a later increment.
 ends. Geometry/channel writes were already correct — only rendering changed.
 `channelsToHex` retained (axis gradient); `formatHex` direct use removed from the
 display path.
+
+---
+
+## ADR-015 — Auto color naming (derive-on-read, vendored ntc, nearest sRGB)
+
+**Date:** 2026-06-16 · **Status:** accepted (amends the persistence note in ADR-013)
+
+**Context:** Default names like "new color N" are noise; a key color should carry
+a real name so the palette is export-ready (named variables). Names must follow
+the color by default, yet stay put once a user renames.
+
+**Decision:**
+- **Model:** `KeyColor.name` → `customName: string | null`. Effective name is
+  **derived on read**: `resolveName = customName ?? autoName(color)`. The auto
+  name is never stored, so it tracks the color with zero logic in color-mutating
+  actions and survives a model switch untouched. Persist `customName` only;
+  migrate legacy `name` as a custom name on load.
+- **Source:** vendored `colorNames.data.ts` (~1.5k *Name that Color* entries,
+  CC BY 2.5, attributed) — small "stub" pack, no npm dependency. Chosen over the
+  larger `color-name-list` (don't need density — users rename anyway) and over an
+  online API (offline, no privacy leak).
+- **Match:** nearest by Euclidean distance in sRGB (simplest; good enough at this
+  density), against the displayed gamut-mapped hex.
+- **`NameInput`:** draft + commit on blur/Enter; empty → null (auto, re-appears
+  immediately); Escape cancels; shows live `value` when unfocused.
+
+**Consequences:** Names can't drift from color (single source of truth). Two auto
+colors can resolve to the same name → export-time dedupe deferred. Naming needs
+the vendored list in the bundle (~40 KB).
+
+---
+
+## ADR-016 — Canvas selection fills: ephemeral store, eyedropper, add-matching
+
+**Date:** 2026-06-16 · **Status:** accepted
+
+**Context:** Users want to pull colors off the canvas. Figma's **native
+eyedropper/color-picker is not exposed to plugins** (confirmed: nothing in
+`@figma/plugin-typings`); the browser `EyeDropper` API was rejected (not in
+plugin/stdlib typings, uncertain iframe runtime). The reliable path is reading
+fills of selected nodes via the main thread.
+
+**Decision:**
+- **Main thread** listens to `selectionchange` / `currentpagechange` (+ a
+  `REQUEST_SELECTION_FILLS` ping on UI mount to dodge the listener race), reads
+  **top-level** selection only, collects visible `SOLID` fills as hex, **dedupes**,
+  and emits `SELECTION_FILLS`.
+- **Ephemeral UI store** `store/selection.ts` (plain zustand, `{ fills }`) — kept
+  **out** of the palette store so selection never touches undo/persistence.
+- **UI:** per-card eyedropper (action row, shown when fills exist) → `fills[0]`
+  via `setKeyColorFromHex`; an add-matching button by "+" (disabled without fills)
+  → `addKeyColors(fills)` (one undo step).
+
+**Consequences:** Works offline, no manifest/network changes. Limitations:
+assumes sRGB document, ignores paint opacity, and won't refresh if a selected
+layer's fill changes without a selection change (could add `documentchange`
+later).

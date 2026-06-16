@@ -27,7 +27,9 @@ spreads them onto the component).
 ```
 main.ts  ──showUI(opts,{initialDocument})──▶  App (props)
    ▲                                            │
-   └──────── on('SAVE_DOCUMENT') ◀── emit('SAVE_DOCUMENT', doc) (debounced)
+   ├──── on('SAVE_DOCUMENT') ◀── emit('SAVE_DOCUMENT', doc)        (debounced)
+   ├──── on('REQUEST_SELECTION_FILLS') ◀── emit(...)               (once, on UI mount)
+   └──── emit('SELECTION_FILLS', { fills }) ──▶ on(...)            (selection / page change)
 ```
 
 ## Data model
@@ -43,14 +45,17 @@ type BlendingColorModel = 'rgb' | 'hsl' | 'oklch'
 type ColorChannels = Record<string, string>
 
 // `color` (culori Color, float rgb) is the source of truth; `channels` is a
-// derived buffer in the current input model.
-interface KeyColor { id: string; name: string; color: Color; channels: ColorChannels }
+// derived buffer in the current input model. `customName` null = auto-named.
+interface KeyColor { id: string; customName: string | null; color: Color; channels: ColorChannels }
 interface Settings { inputColorModel: InputColorModel; blendingColorModel: BlendingColorModel }
 interface PaletteDocument { keyColors: KeyColor[]; settings: Settings }   // runtime
 
-// Persisted shape: only `color` stored, `channels` re-derived on load. Loose to
-// tolerate older files that predate `color` (carry `channels`) — migrated on load.
-interface PersistedKeyColor { id: string; name: string; color?: Color; channels?: ColorChannels }
+// Persisted shape: `color` + `customName`; `channels`/auto names re-derived on
+// load. Loose to tolerate older files (pre-`color` carry `channels`; pre-
+// `customName` carry a plain `name`) — both migrated on load.
+interface PersistedKeyColor {
+  id: string; customName?: string | null; name?: string; color?: Color; channels?: ColorChannels
+}
 interface PersistedDocument { keyColors: PersistedKeyColor[]; settings: Settings }
 ```
 
@@ -59,6 +64,9 @@ float `rgb` mode, left **unclamped** so wide-gamut colors persist as extended
 sRGB (ADR-013). The hex shown in the UI and the `channels` are both derived from
 it. `channels` are strings (not numbers) on purpose: they keep exactly what the
 user typed and tolerate mid-edit states.
+
+**Name** is `customName` (user-pinned) or, when `null`, an auto name derived from
+the color — effective name = `resolveName(keyColor)` (see Auto color naming).
 
 Update rules: a **channel edit** keeps the typed strings and recomputes `color`;
 a **hex edit** sets `color` then re-derives `channels`; an **input-model switch**
@@ -85,6 +93,25 @@ near-black to exact RGB and kills floating-point dust, so e.g. white never shows
 `s = 100`. `lch` keeps wide gamut (no chroma clamp). `fmt()` hard-clamps every
 channel to `[min, max]` as a final guard. (See ADR-007.)
 
+## Auto color naming — `src/color/naming.ts` (ADR-015)
+
+So a new color reads as "Lavender" rather than "new color 1", and the palette is
+export-ready by default.
+
+- **Source:** `src/color/colorNames.data.ts` — a vendored, normalized
+  `{ name, hex }[]` (~1.5k entries from *Name that Color*, CC BY 2.5 — attribution
+  in the file header). No npm dependency.
+- **Match:** `autoName(color)` — nearest entry by Euclidean distance in sRGB,
+  compared against the **displayed** (gamut-mapped) hex so the name agrees with
+  the swatch. The list's RGB is precomputed once at module load.
+- **Effective name:** `resolveName(keyColor) = customName ?? autoName(color)` —
+  derive-on-read; the auto name is never stored, so it follows the color for free
+  and a model switch leaves it untouched. `customName: null` = auto.
+- **`NameInput`** (`components/NameInput`) edits a draft and commits on blur/Enter:
+  empty → `setKeyColorName(id, null)` (back to auto, re-appears immediately);
+  non-empty → pins it. Escape cancels. While not focused it shows `value`, so the
+  auto name updates live.
+
 ## Store — `src/store/index.ts`
 
 `zustand` store wrapped in `zundo`'s `temporal`. State = `PaletteDocument`
@@ -92,7 +119,9 @@ channel to `[min, max]` as a final guard. (See ADR-007.)
 
 - `hydrate(document)` — normalize a `PersistedDocument` into runtime key colors
   (re-derive `channels` from `color`; migrate older files lacking `color`).
-- `addKeyColor` (white "white" at end), `removeKeyColor`, `renameKeyColor`,
+- `addKeyColor` (white, at end), `addKeyColors(hexes)` (bulk add in one update =
+  one undo step; used by "add matching"), `removeKeyColor`,
+  `setKeyColorName(id, name | null)` (pin a custom name, or null = auto),
   `setKeyColorChannel` / `setKeyColorChannels` (update buffer + recompute `color`),
   `setKeyColorFromHex` (set `color` + re-derive channels).
 - `setInputColorModel` (re-derives channels from `color`, `color` untouched),
@@ -109,6 +138,12 @@ typed over `TemporalState<PaletteDocument>`.
 pause zundo during a drag or field edit and commit a single pre-edit snapshot on
 release/blur, so each interaction is one undo step (ADR-012).
 
+**Undo/redo hotkeys:** a `window` `keydown` listener in `App` maps
+**Ctrl/Cmd+Z** → `temporal.undo()` and **Ctrl/Cmd+Shift+Z** → `temporal.redo()`
+(same temporal store as the Header buttons). It no-ops while a text field is
+focused (`input`/`textarea`/`select`/contenteditable) so the field's native undo
+keeps working.
+
 ## Persistence — `src/utils/storage.ts` + `main.ts` + `App.tsx`
 
 Per-file, **load-on-open + save-on-change** (no live concurrent multi-user sync).
@@ -121,12 +156,35 @@ Per-file, **load-on-open + save-on-change** (no live concurrent multi-user sync)
   baseline. This happens **before** the save subscription is attached, so the
   hydration is neither saved back (no echo) nor added to history.
 - **Save:** `App` subscribes to the store, debounced 400 ms, and
-  `emit('SAVE_DOCUMENT', …)` with key colors stripped to `{ id, name, color }`
-  (channels are re-derived on load). `main.ts` writes it with
+  `emit('SAVE_DOCUMENT', …)` with key colors stripped to `{ id, customName, color }`
+  (channels and auto names are re-derived on load). `main.ts` writes it with
   `figma.root.setSharedPluginData`.
 
 `storage.ts` also has `clientStorage` (per-user) wrappers, currently unused —
 kept for a possible future per-user feature.
+
+## Canvas selection — fills, eyedropper, "add matching" (ADR-016)
+
+Lets the user pull colors off the canvas into the palette.
+
+- **Collect (main):** on `selectionchange` / `currentpagechange` (and on a
+  `REQUEST_SELECTION_FILLS` ping the UI sends on mount, to avoid racing its
+  listener), `main.ts` reads the **top-level** selection (`figma.currentPage.selection`,
+  not nested layers), takes each node's visible `SOLID` fills, converts to hex,
+  **dedupes** (order-preserving), and `emit('SELECTION_FILLS', { fills })`.
+- **Hold (UI):** a separate **ephemeral** store `src/store/selection.ts`
+  (`{ fills }`, plain zustand) — deliberately outside the palette store so it
+  never enters undo history or persistence.
+- **Use:** a per-card **eyedropper** (in the card's action row, shown only when
+  `fills` is non-empty) sets that color to `fills[0]` via `setKeyColorFromHex`;
+  an **add-matching** button by "+" (disabled when no fills) appends every fill
+  via `addKeyColors`.
+- Notes: assumes an sRGB document; paint opacity is ignored; fills don't refresh
+  if a selected layer's fill changes without a selection change.
+
+> Reading Figma's native eyedropper/color-picker from a plugin is **not possible**
+> (no such API); the browser `EyeDropper` API was rejected for runtime/iframe
+> uncertainty, so this selection-based flow replaced it.
 
 ## Component tree
 
@@ -135,10 +193,12 @@ App (app/App.tsx)
 ├── Header                 undo/redo (left) · settings gear (right)
 │   └── Popover            custom anchored popover (outside-click + Esc)
 │       └── SettingsPopover  two SegmentedControls (input / blending model)
-└── KeyColorsSection       "Key colors" header + "+" · horizontal card list
-    │                       (auto-scrolls to reveal the new card on add)
-    └── KeyColorCard        swatch (top) · ghost name (footer) · trash chip (hover)
+└── KeyColorsSection       header: "+" add · add-matching (from selection) · card list
+    │                       (auto-scrolls to reveal new card(s) on add)
+    └── KeyColorCard        swatch (top) · action row (hover) · NameInput (footer)
         ├── ColorSample     fills the card top → opens the color picker popover
+        ├── action row      eyedropper (when selection has a fill) · trash
+        ├── NameInput       ghost field; auto name unless a custom one is pinned
         └── Popover         (right-top, anchored to the swatch)
             └── ColorPicker  HueWheel · Gradient · GhostInput hex · ChannelInputs
                 ├── HueWheel   model-aware conic hue + radial saturation, hairline ring; Handles (active + dots)
@@ -160,17 +220,18 @@ App (app/App.tsx)
   gamut mapping (`colorToHex`/`channelsToHex` → `toGamut('rgb','oklch')`), so
   out-of-sRGB colors reduce chroma toward gray instead of clamping to over-bright.
 - **Card vs picker:** the card shows only the swatch + a borderless ("ghost")
-  name field; the trash chip is a white bordered tile revealed on card hover. All
-  channel editing lives in the picker, not the card. The picker has **no close
-  button** — it closes via outside-click or a re-click on the swatch (toggled in
-  `KeyColorCard`). `GhostInput` is the hex field, styled like a DS Textbox (filled,
-  `#` in the icon slot); it edits bare digits and re-adds `#` for parsing.
+  name field (`NameInput`); the action row (white bordered tiles: eyedropper when
+  the selection has a fill, trash) is revealed on card hover. All channel editing
+  lives in the picker, not the card. The picker has **no close button** — it
+  closes via outside-click or a re-click on the swatch (toggled in `KeyColorCard`).
+  `GhostInput` is the hex field, styled like a DS Textbox (filled, `#` in the icon
+  slot); it edits bare digits and re-adds `#` for parsing.
 - DS components used: `IconButton`, `SegmentedControl`, `TextboxNumeric` (its
   string `value` + `onValueInput` map directly to raw channels; its `icon` slot
   holds the channel label). Name and hex fields are plain `<input>`s (ghost /
   DS-look) rather than DS `Textbox`. Icons carry a numeric suffix:
-  `IconSettings24`, `IconPlusSmall24`, `IconTrash24`,
-  `IconNavigateBack24` / `…Forward24`.
+  `IconSettings24`, `IconPlusSmall24`, `IconTrash24`, `IconEyedropperSmall24`,
+  `IconSelectMatchingSmall24`, `IconNavigateBack24` / `…Forward24`.
 - There is **no** native Popover in the DS, so `components/Popover` is a small
   custom one (plain `useEffect`: outside-click via `containerRef.contains` +
   Escape). With an `anchorRef` it positions `fixed` from the trigger rect

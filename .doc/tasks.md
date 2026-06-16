@@ -4,6 +4,13 @@ Volatile working state. Last updated: 2026-06-16.
 
 ## Done
 
+- **Undo/redo hotkeys:** Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z (global `keydown` in
+  `App`), skipped while a text field is focused.
+- **Canvas selection → palette** (ADR-016): main-thread tracks top-level
+  selection's solid fills (deduped) → ephemeral `store/selection.ts`; per-card
+  eyedropper sets from first fill; "add matching" button appends all fills.
+- **Auto color naming** (ADR-015): `customName ?? autoName(color)`; nearest sRGB
+  match over a vendored ~1.5k ntc list; `NameInput` (empty → revert to auto).
 - **LCH picker fidelity** (ADR-014): hue wheel painted in each model's own hue
   scale (`hueRingColor` + `buildHueWheelConic`); all display hex gamut-mapped
   (`toGamut('rgb','oklch')`) so extreme-L/high-C ends darken/lighten instead of

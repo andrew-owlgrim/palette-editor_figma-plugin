@@ -64,6 +64,33 @@ export function App({ initialDocument }: AppProps) {
     return unsubscribe
   }, [])
 
+  // Undo/redo hotkeys: Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z. Matches on `event.code`
+  // (physical key) so it's layout-independent — `event.key` would be the
+  // localized character (e.g. 'я' on a Cyrillic layout) and miss. Skipped while a
+  // text field is focused so its own native undo keeps working.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      const mod = event.ctrlKey || event.metaKey
+      if (!mod || event.code !== 'KeyZ') return
+
+      const target = event.target as HTMLElement | null
+      if (
+        target !== null &&
+        (target.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+      ) {
+        return
+      }
+
+      event.preventDefault()
+      const temporal = usePaletteStore.temporal.getState()
+      if (event.shiftKey) temporal.redo()
+      else temporal.undo()
+    }
+
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [])
+
   return (
     <div class={styles.root}>
       <Header />

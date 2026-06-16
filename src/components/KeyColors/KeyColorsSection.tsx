@@ -41,11 +41,11 @@ export function KeyColorsSection() {
       <div class={styles.header}>
         <span class={styles.title}>Key colors</span>
         <div class={styles.actions}>
-          <IconButton onClick={handleAdd}>
-            <IconPlusSmall24 />
-          </IconButton>
           <IconButton onClick={handleAddMatching} disabled={selectionFills.length === 0}>
             <IconSelectMatchingSmall24 />
+          </IconButton>
+          <IconButton onClick={handleAdd}>
+            <IconPlusSmall24 />
           </IconButton>
         </div>
       </div>
