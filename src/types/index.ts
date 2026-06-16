@@ -57,3 +57,16 @@ export interface SaveDocumentHandler extends EventHandler {
   name: 'SAVE_DOCUMENT'
   handler: (document: PersistedDocument) => void
 }
+
+// main -> UI: deduped solid fills (hex) of the directly-selected nodes.
+export interface SelectionFillsHandler extends EventHandler {
+  name: 'SELECTION_FILLS'
+  handler: (data: { fills: string[] }) => void
+}
+
+// UI -> main: ask for the current selection fills (sent once on UI mount, since
+// the first push could otherwise race the UI's listener registration).
+export interface RequestSelectionFillsHandler extends EventHandler {
+  name: 'REQUEST_SELECTION_FILLS'
+  handler: () => void
+}

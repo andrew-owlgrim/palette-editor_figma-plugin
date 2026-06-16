@@ -33,6 +33,7 @@ function normalizeKeyColor(k: PersistedKeyColor, model: InputColorModel): KeyCol
 interface PaletteActions {
   hydrate: (document: PersistedDocument) => void
   addKeyColor: () => void
+  addKeyColors: (hexes: string[]) => void
   removeKeyColor: (id: string) => void
   // null = revert to auto-naming; a string = pin a custom name.
   setKeyColorName: (id: string, name: string | null) => void
@@ -78,6 +79,24 @@ export const usePaletteStore = create<PaletteStore>()(
             ],
           }
         }),
+
+      // Append one key color per hex in a single update (one undo step / one
+      // save) — used by "add matching" from the canvas selection.
+      addKeyColors: (hexes) =>
+        set((state) => ({
+          keyColors: [
+            ...state.keyColors,
+            ...hexes.map((hex) => {
+              const color = hexToColor(hex)
+              return {
+                id: newId(),
+                customName: null,
+                color,
+                channels: colorToChannels(color, state.settings.inputColorModel),
+              }
+            }),
+          ],
+        })),
 
       removeKeyColor: (id) =>
         set((state) => ({ keyColors: state.keyColors.filter((k) => k.id !== id) })),

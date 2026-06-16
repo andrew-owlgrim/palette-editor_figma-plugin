@@ -1,9 +1,15 @@
-import { emit } from '@create-figma-plugin/utilities'
+import { emit, on } from '@create-figma-plugin/utilities'
 import { useEffect } from 'preact/hooks'
 import { Header } from '@/components/Header/Header'
 import { KeyColorsSection } from '@/components/KeyColors/KeyColorsSection'
 import { usePaletteStore } from '@/store'
-import type { PersistedDocument, SaveDocumentHandler } from '@/types'
+import { useSelectionStore } from '@/store/selection'
+import type {
+  PersistedDocument,
+  RequestSelectionFillsHandler,
+  SaveDocumentHandler,
+  SelectionFillsHandler,
+} from '@/types'
 import styles from './App.css'
 
 interface AppProps {
@@ -48,6 +54,15 @@ export function App({ initialDocument }: AppProps) {
       unsubscribe()
     }
   }, [initialDocument])
+
+  // Track canvas-selection fills (ephemeral, kept out of the palette store).
+  useEffect(() => {
+    const unsubscribe = on<SelectionFillsHandler>('SELECTION_FILLS', ({ fills }) => {
+      useSelectionStore.getState().setFills(fills)
+    })
+    emit<RequestSelectionFillsHandler>('REQUEST_SELECTION_FILLS')
+    return unsubscribe
+  }, [])
 
   return (
     <div class={styles.root}>

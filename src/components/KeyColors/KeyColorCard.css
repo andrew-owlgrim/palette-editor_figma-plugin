@@ -23,22 +23,28 @@
   height: 100%;
 }
 
-/* Trash chip: hidden until the card is hovered, then a white tile with a border. */
-.deleteButton {
+/* Action row: hidden until the card is hovered, then a row of white tile
+   buttons (eyedropper when a selection fill exists, delete). */
+.actionRow {
   position: absolute;
   top: 8px;
   right: 8px;
+  display: flex;
+  gap: 6px;
   opacity: 0;
+  transition: opacity 80ms ease;
+}
+
+.card:hover .actionRow,
+.actionRow:focus-within {
+  opacity: 1;
+}
+
+.action {
   background-color: var(--figma-color-bg);
   border: 1px solid var(--figma-color-border);
   border-radius: 6px;
   overflow: hidden;
-  transition: opacity 80ms ease;
-}
-
-.card:hover .deleteButton,
-.deleteButton:focus-within {
-  opacity: 1;
 }
 
 .footer {

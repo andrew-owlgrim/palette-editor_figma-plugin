@@ -1,18 +1,21 @@
-import { IconButton, IconPlusSmall24 } from '@create-figma-plugin/ui'
+import { IconButton, IconPlusSmall24, IconSelectMatchingSmall24 } from '@create-figma-plugin/ui'
 import { useEffect, useRef } from 'preact/hooks'
 import { KeyColorCard } from './KeyColorCard'
 import { usePaletteStore } from '@/store'
+import { useSelectionStore } from '@/store/selection'
 import styles from './KeyColorsSection.css'
 
 export function KeyColorsSection() {
   const keyColors = usePaletteStore((s) => s.keyColors)
   const addKeyColor = usePaletteStore((s) => s.addKeyColor)
+  const addKeyColors = usePaletteStore((s) => s.addKeyColors)
+  const selectionFills = useSelectionStore((s) => s.fills)
 
   const listRef = useRef<HTMLDivElement>(null)
-  // Set only by the "+" button so we scroll on user-add, not on load/undo.
+  // Set only by the add buttons so we scroll on user-add, not on load/undo.
   const scrollToEndRef = useRef(false)
 
-  // After the new card has rendered, reveal it (it's appended at the end).
+  // After the new card(s) have rendered, reveal them (appended at the end).
   useEffect(() => {
     if (!scrollToEndRef.current) return
     scrollToEndRef.current = false
@@ -27,13 +30,24 @@ export function KeyColorsSection() {
     addKeyColor()
   }
 
+  function handleAddMatching() {
+    if (selectionFills.length === 0) return
+    scrollToEndRef.current = true
+    addKeyColors(selectionFills)
+  }
+
   return (
     <section class={styles.section}>
       <div class={styles.header}>
         <span class={styles.title}>Key colors</span>
-        <IconButton onClick={handleAdd}>
-          <IconPlusSmall24 />
-        </IconButton>
+        <div class={styles.actions}>
+          <IconButton onClick={handleAdd}>
+            <IconPlusSmall24 />
+          </IconButton>
+          <IconButton onClick={handleAddMatching} disabled={selectionFills.length === 0}>
+            <IconSelectMatchingSmall24 />
+          </IconButton>
+        </div>
       </div>
 
       {keyColors.length === 0 ? (

@@ -1,4 +1,4 @@
-import { IconButton, IconTrash24 } from '@create-figma-plugin/ui'
+import { IconButton, IconEyedropperSmall24, IconTrash24 } from '@create-figma-plugin/ui'
 import { useRef, useState } from 'preact/hooks'
 import { ColorPicker } from '@/components/ColorPicker/ColorPicker'
 import { ColorSample } from '@/components/ColorSample/ColorSample'
@@ -7,6 +7,7 @@ import { Popover } from '@/components/Popover/Popover'
 import { colorToHex } from '@/color/models'
 import { resolveName } from '@/color/naming'
 import { usePaletteStore } from '@/store'
+import { useSelectionStore } from '@/store/selection'
 import type { KeyColor } from '@/types'
 import styles from './KeyColorCard.css'
 
@@ -17,6 +18,8 @@ interface KeyColorCardProps {
 export function KeyColorCard({ keyColor }: KeyColorCardProps) {
   const removeKeyColor = usePaletteStore((s) => s.removeKeyColor)
   const setKeyColorName = usePaletteStore((s) => s.setKeyColorName)
+  const setKeyColorFromHex = usePaletteStore((s) => s.setKeyColorFromHex)
+  const selectionFills = useSelectionStore((s) => s.fills)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const anchorRef = useRef<HTMLDivElement>(null)
@@ -30,10 +33,19 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
         <div class={styles.anchor} ref={anchorRef}>
           <ColorSample hex={hex} onClick={() => setPickerOpen((open) => !open)} />
         </div>
-        <div class={styles.deleteButton}>
-          <IconButton onClick={() => removeKeyColor(keyColor.id)}>
-            <IconTrash24 />
-          </IconButton>
+        <div class={styles.actionRow}>
+          {selectionFills.length > 0 ? (
+            <div class={styles.action}>
+              <IconButton onClick={() => setKeyColorFromHex(keyColor.id, selectionFills[0])}>
+                <IconEyedropperSmall24 />
+              </IconButton>
+            </div>
+          ) : null}
+          <div class={styles.action}>
+            <IconButton onClick={() => removeKeyColor(keyColor.id)}>
+              <IconTrash24 />
+            </IconButton>
+          </div>
         </div>
         <Popover
           open={pickerOpen}
