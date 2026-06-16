@@ -3,6 +3,7 @@ import { useRef, useState } from 'preact/hooks'
 import { ColorPicker } from '@/components/ColorPicker/ColorPicker'
 import { ColorSample } from '@/components/ColorSample/ColorSample'
 import { NameInput } from '@/components/NameInput/NameInput'
+import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { Popover } from '@/components/Popover/Popover'
 import { colorToHex } from '@/color/models'
 import { resolveName } from '@/color/naming'
@@ -36,15 +37,19 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
         <div class={styles.actionRow}>
           {selectionFills.length > 0 ? (
             <div class={styles.action}>
-              <IconButton onClick={() => setKeyColorFromHex(keyColor.id, selectionFills[0])}>
-                <IconEyedropperSmall24 />
-              </IconButton>
+              <Tooltip content="Use color from selection">
+                <IconButton onClick={() => setKeyColorFromHex(keyColor.id, selectionFills[0])}>
+                  <IconEyedropperSmall24 />
+                </IconButton>
+              </Tooltip>
             </div>
           ) : null}
           <div class={styles.action}>
-            <IconButton onClick={() => removeKeyColor(keyColor.id)}>
-              <IconTrash24 />
-            </IconButton>
+            <Tooltip content="Delete">
+              <IconButton onClick={() => removeKeyColor(keyColor.id)}>
+                <IconTrash24 />
+              </IconButton>
+            </Tooltip>
           </div>
         </div>
         <Popover

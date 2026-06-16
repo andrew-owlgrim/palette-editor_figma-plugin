@@ -1,0 +1,44 @@
+/* Inline-flex so wrapping a button is layout-neutral inside the flex action
+   rows, and so the span tightly hugs the trigger as the positioning reference. */
+.trigger {
+  display: inline-flex;
+}
+
+/* A disabled control is inert: the browser swallows pointer events over it, so
+   the wrapper would miss the `pointerleave` and the bubble would stay stuck.
+   Let pointer events fall through to the trigger span (the event surface). */
+.trigger :disabled {
+  pointer-events: none;
+}
+
+/* Figma's tooltips are dark in both light and dark themes, so the colors are
+   intentionally hard-coded rather than tied to `--figma-color-*`. */
+.tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 20;
+  width: max-content;
+  max-width: 240px;
+  padding: 5px 8px;
+  border-radius: 5px;
+  background-color: #1e1e1e;
+  color: #fff;
+  font-family: var(--font-family-default, inherit);
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 400;
+  /* Never intercept pointer events — it must not break the trigger's hover. */
+  pointer-events: none;
+  box-shadow:
+    0 0 0 0.5px rgba(0, 0, 0, 0.1),
+    0 2px 6px rgba(0, 0, 0, 0.3);
+}
+
+.arrow {
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  background-color: #1e1e1e;
+  transform: rotate(45deg);
+}

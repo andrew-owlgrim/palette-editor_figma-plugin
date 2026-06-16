@@ -1,375 +1,161 @@
 # Decisions (ADR log)
 
-Append-only. Newest entries at the bottom. Each: context → decision → consequences.
+Strategic decisions and implementation forks — the *why* behind non-obvious
+choices and the constraints future work must respect. Implementation detail
+lives in the code and `architecture.md`; superseded entries are collapsed to one
+line. Newest at the bottom; numbers are stable (referenced elsewhere).
 
 ---
 
-## ADR-001 — Use `create-figma-plugin` toolkit (Preact)
+## ADR-001 — `create-figma-plugin` toolkit (Preact)
 
-**Date:** 2026-06-15 · **Status:** accepted
+- **Context:** need a Figma-plugin scaffold (two-thread build, typed messaging,
+  native-looking components).
+- **Decision:** `create-figma-plugin` v4 — its `@create-figma-plugin/ui`
+  design-system components are why the UI is Preact, not React.
+- **Consequence:** esbuild via the toolkit; custom config only through
+  `build-figma-plugin.*.js` overrides.
 
-**Context:** Need a Figma-plugin scaffold with the two-thread build, typed
-messaging, and native-looking UI components.
+## ADR-002 — `react` → `preact/compat` type aliasing
 
-**Decision:** Use `create-figma-plugin` v4. Its `@create-figma-plugin/ui`
-provides Figma design-system components, which is the main reason it's built on
-Preact.
-
-**Consequences:** UI runtime is Preact, not React. Build is esbuild via the
-toolkit (custom esbuild config only through `build-figma-plugin.*.js` overrides).
-
----
-
-## ADR-002 — Preact with `react` → `preact/compat` type aliasing
-
-**Date:** 2026-06-15 · **Status:** accepted
-
-**Context:** DnD Kit (and other libs) are typed against React; their props (e.g.
-`children: React.ReactNode`) clashed with Preact's JSX types.
-
-**Decision:** Alias `react` / `react-dom` / `react/jsx-runtime` to the preact
-equivalents in `tsconfig` `paths`; rely on the toolkit's built-in react→preact
-esbuild alias at bundle time. Do **not** install `@types/react`. Enable
-`skipLibCheck`.
-
-**Consequences:** Libraries expecting React work under Preact. Adding
-`@types/react` re-breaks `DndContext` children typing — must not be reintroduced.
-
----
+- **Context:** React-typed libraries (DnD Kit) clash with Preact's JSX types.
+- **Decision:** alias `react`/`react-dom`/`react/jsx-runtime` → preact in tsconfig
+  `paths` (+ the toolkit's bundle-time alias), `skipLibCheck`. Do **not** install
+  `@types/react`.
+- **Consequence:** React-typed libs work under Preact. Adding `@types/react`
+  re-breaks `DndContext` children typing — never reintroduce.
 
 ## ADR-003 — `zustand` + `zundo` for state and undo/redo
 
-**Date:** 2026-06-15 · **Status:** accepted
-
-**Context:** Need a small store plus undo/redo.
-
-**Decision:** `zustand` v5 for state, `zundo` v2 `temporal` middleware for
-history. `partialize` to the document (exclude action fns); `equality` via
-`JSON.stringify`; `limit: 100`.
-
-**Consequences:** `useTemporalStore` selector hook over `temporal`. History is
-the document only.
-
----
+- **Decision:** zustand v5 store; zundo `temporal` for history, `partialize`d to
+  the document (`{ keyColors, settings }`), `limit: 100`.
 
 ## ADR-004 — CSS Modules, not Tailwind
 
-**Date:** 2026-06-16 · **Status:** accepted
+- **Context:** Tailwind v4 would need a custom esbuild plugin (the toolkit treats
+  every `.css` as a CSS Module).
+- **Decision:** CSS Modules + Figma `--figma-color-*` vars, one `.css` per
+  component. The plugin was judged overkill.
+- **Consequence:** component-scoped CSS, no utilities. Don't reintroduce Tailwind
+  without revisiting the esbuild tradeoff.
 
-**Context:** Considered Tailwind v4. The toolkit's esbuild pipeline intercepts
-all `.css` as CSS Modules; integrating Tailwind required a custom esbuild plugin
-to run `@tailwindcss/postcss` and inject the result.
+## ADR-005 — Raw channel strings as source of truth
 
-**Decision:** Drop Tailwind. Use CSS Modules (built into the toolkit), one `.css`
-per component, plus Figma `--figma-color-*` variables for native look. The custom
-plugin was judged overkill.
+Superseded by ADR-013: channel→channel model switches are lossy.
 
-**Consequences:** No utility classes; component-scoped CSS. Don't reintroduce
-Tailwind without revisiting the esbuild-plugin tradeoff.
+## ADR-006 — Undo covers the whole document
 
----
-
-## ADR-005 — Raw channel strings as the source of truth
-
-**Date:** 2026-06-16 · **Status:** superseded by [ADR-013](#adr-013--canonical-float-rgb-color-as-the-source-of-truth)
-
-**Context:** Color inputs are edited in a user-chosen model (hsl/hsv/lch) and
-must persist exactly what was typed; conversions are lossy.
-
-**Decision:** A key color stores `channels: Record<string,string>` — raw input
-strings in the *current* `inputColorModel` — and nothing else. The displayable
-color is derived via culori on demand. Switching the input model recomputes all
-channels (`old → culori color → new`).
-
-**Consequences:** Minimal, save-ready model. No stored canonical color. Parsing
-happens at conversion/render time.
-
----
-
-## ADR-006 — Undo covers the whole document, including model switches
-
-**Date:** 2026-06-16 · **Status:** accepted
-
-**Context:** Should changing the input/blending color model be undoable?
-
-**Decision:** Yes — undo/redo tracks the entire `PaletteDocument`
-(`keyColors` + `settings`). A model switch (which rewrites all channels) is a
-normal, undoable action.
-
-**Consequences:** Predictable history; simplest mental model. zundo `partialize`
-to `{ keyColors, settings }`.
-
----
+History tracks the entire `PaletteDocument`, so an input/blending model switch is
+a normal, undoable action.
 
 ## ADR-007 — Gamut-map hsl/hsv via `toGamut('rgb','oklch')`
 
-**Date:** 2026-06-16 · **Status:** accepted
+- **Context:** wide-gamut / near-white colors gave out-of-range HSL/HSV channels
+  (white showed `s ≈ 100`; HSL saturation is unstable near L 0/100).
+- **Decision:** hsl/hsv map into sRGB with `toGamut('rgb','oklch')` before reading
+  channels; lch keeps wide gamut. (Extended to *all* hex output in ADR-014.)
 
-**Context:** Converting wide-gamut/near-white colors (esp. from LCH) to HSL/HSV
-produced channel values out of range — white showed `s ≈ 100` (HSL saturation is
-unstable as lightness → 100%, amplified by floating-point dust in lch→rgb).
-`clampChroma` / `clampRgb` didn't fix near-white (left unequal ~1.0 channels).
+## ADR-008 — Per-file persistence: load-on-open + save-on-change
 
-**Decision:** In `hsl`/`hsv` `toChannels`, map into sRGB with
-`toGamut('rgb','oklch')` (CSS Color 4) before reading channels; it snaps
-near-white/black to exact RGB. `lch` keeps wide gamut. `fmt()` also hard-clamps
-to `[min,max]`.
+- **Decision:** store the document in `figma.root` `sharedPluginData`; load
+  synchronously at startup → UI `initialDocument`; save debounced over the
+  emit/on bridge; hydrate-then-clear-history before subscribing (no save echo,
+  load stays out of undo). No live multi-user sync.
+- **Consequence:** two simultaneously-open sessions don't live-update until reopen.
 
-**Consequences:** Channels stay in range; white→`s 0`; wide-gamut colors map with
-hue preserved.
+## ADR-009 — `sharedPluginData` namespace `mycolors`
 
----
+`getSharedPluginData` requires alphanumeric/`_`; the hyphen in `my-colors` threw.
+Keep namespaces hyphen-free.
 
-## ADR-008 — Per-file persistence; load-on-open + save-on-change
+## ADR-010 — No `suffix` on numeric inputs
 
-**Date:** 2026-06-16 · **Status:** accepted
-
-**Context:** The palette must be shared with everyone editing the file.
-
-**Decision:** Persist `PaletteDocument` in `figma.root` `sharedPluginData`. Load
-synchronously at startup and pass to the UI as `initialDocument`; save on store
-changes, debounced 400 ms, over the `emit`/`on` bridge. Hydrate-then-clear-history
-before subscribing to avoid save echo and keep load out of undo. No live
-concurrent multi-user sync (loads on (re)open). `clientStorage` (per-user) not used.
-
-**Consequences:** Simple and robust. Two simultaneously-open sessions won't
-live-update each other until reopened.
-
----
-
-## ADR-009 — `sharedPluginData` namespace `mycolors` (no hyphen)
-
-**Date:** 2026-06-16 · **Status:** accepted
-
-**Context:** `getSharedPluginData` threw: namespace must be alphanumeric / `_`.
-The original `my-colors` contained a hyphen.
-
-**Decision:** Namespace is `mycolors`.
-
-**Consequences:** No data lost (reads/writes never succeeded before). Keep
-namespaces hyphen-free.
-
----
-
-## ADR-010 — No `suffix` on numeric channel inputs
-
-**Date:** 2026-06-16 · **Status:** accepted
-
-**Context:** `TextboxNumeric`'s `suffix="%"` bakes the suffix into the value
-string (on blur/arrow), so `"50%"` leaked into the raw channel values.
-
-**Decision:** Don't use `suffix`; channel inputs are plain numbers. A unit
-indicator, if wanted, should be static text outside the input.
-
-**Consequences:** Clean numeric raw values; the `%` artifact is gone.
-
----
+Removed: implementation detail (`TextboxNumeric` `suffix` baked `%` into the
+value) — see `ChannelInput`.
 
 ## ADR-011 — Custom color picker; raw pointer drag (not DnD Kit)
 
-**Date:** 2026-06-16 · **Status:** accepted (wheel color fidelity & hue axis amended by [ADR-014](#adr-014--model-aware-hue-ring-gamut-mapped-rendering-hue-0-at-right))
-
-> Note: the "Wheel tint is sRGB-approximate for LCH" and "hue 225° at top
-> (`ANGLE_OFFSET_DEG`)" details below are superseded by ADR-014 — the ring is now
-> painted in each model's own hue scale (gamut-mapped) and hue 0° sits at the right.
-
-**Context:** Needed a custom color picker (hue wheel + lightness gradient +
-channel inputs) in a popover. The DS has no popover and no draggable
-wheel/slider; DnD Kit (already a dependency, "planned use") is list/sortable-
-oriented and awkward for constrained radial/linear dragging.
-
-**Decision:** Build it from small pieces, all CSS-rendered (no canvas):
-- `HueWheel` — `conic-gradient` hue + radial-white saturation overlay; polar
-  geometry in `color/picker.ts`. Hue 225° sits at top (`ANGLE_OFFSET_DEG`,
-  cosmetic; shared by background + handle math).
-- `Gradient` — universal controlled 1D slider; the consumer supplies the CSS
-  track background (`buildAxisGradient` samples the model's lightness/value axis
-  to hex), the component owns the handle.
-- `Handle` — presentational dot; `draggable` shows a color sample, otherwise a
-  plain white dot (used to mark other key colors on the wheel).
-- `usePointerDrag` — pointer-capture drag on the track element; constraints
-  (clamp into circle / onto line) live in each consumer. Chosen over DnD Kit.
-- `GhostInput` — borderless hex field that reveals a border on hover/focus
-  (mirrors `Textbox` states); validates/normalizes via culori on blur/Escape.
-- `ChannelInput` — `TextboxNumeric` with the channel label in the DS `icon`
-  slot (label-inside-input), reused by the picker and `KeyColorCard`.
-- Model-agnostic via `picker: { angle, radius, axis }` on each `ColorModelDef`.
-
-The `Popover` gained a `right-top` placement: when given an `anchorRef` it
-positions `fixed` from the trigger's bounding rect (escapes card overflow),
-measuring its own size to flip to the left side (right-top → left-top) and clamp
-when it would overflow the window; without one it keeps the original
-CSS-anchored behavior.
-
-**Consequences:** No canvas, cheap per-frame work (trig + a transform). Wheel
-tint is sRGB-approximate for LCH (handle value stays correct). LCH chroma radius
-is linear `c / 150`; out-of-gamut points clamp on conversion (same behavior as
-the numeric input). New store action `setKeyColorChannels` writes hue+saturation
-together so a wheel drag is one undo step / one save. DnD Kit remains unused.
-
----
+- **Context:** need a hue wheel + lightness slider + channel inputs in a popover;
+  the DS has none, and DnD Kit is sortable-oriented (awkward for radial/linear
+  drag).
+- **Decision:** build from small, CSS-rendered pieces, model-agnostic via
+  `picker: { angle, radius, axis }` on each `ColorModelDef`; drag via
+  `usePointerDrag` (window-level pointer capture). A custom `Popover` adds a
+  `fixed` `right-top` placement that flips/clamps to the window.
+- **Consequence:** no canvas; DnD Kit stays unused. (Wheel color fidelity & hue
+  axis amended by ADR-014.)
 
 ## ADR-012 — Coalesce live edits into one undo step
 
-**Date:** 2026-06-16 · **Status:** accepted
-
-**Context:** A wheel/gradient drag and per-keystroke channel edits each fire many
-store updates; zundo records every change, so a single drag or field edit
-produced dozens of undo entries. Desired checkpoints: the state *between* a
-completed drag and an input blur. Pausing zundo around the interaction alone
-loses the pre-edit state (it was the "present" and gets overwritten while
-paused, never pushed to `pastStates`).
-
-**Decision:** `src/store/history.ts` exposes `beginLiveEdit` / `endLiveEdit`.
-Begin snapshots `{ keyColors, settings }` and `pause()`s tracking; end `resume()`s
-and, if the doc changed, pushes that one snapshot directly onto the temporal
-store (`usePaletteStore.temporal.setState`, appending `pastStates` + clearing
-`futureStates`), mirroring zundo's own `_handleSet`. Drags call them via
-`onDragStart`/`onDragEnd` (forwarded through `HueWheel`/`Gradient`); channel
-fields call them on focus/blur. Re-entrant calls keep the first snapshot.
-
-**Consequences:** One undo step per drag / per field edit. The hex `GhostInput`
-needs no wrapping (it commits once on blur). Pointer-drag listeners live on
-`window` (in `usePointerDrag`) so a drag keeps tracking outside the element and
-never sticks on an out-of-bounds release.
-
----
+- **Context:** a drag or per-keystroke edit fired dozens of zundo entries.
+- **Decision:** `store/history.ts` `beginLiveEdit`/`endLiveEdit` snapshot the
+  pre-edit document and pause zundo, committing one snapshot on release/blur;
+  drags and channel fields call them.
 
 ## ADR-013 — Canonical float-rgb color as the source of truth
 
-**Date:** 2026-06-16 · **Status:** accepted (supersedes ADR-005; persistence later
-amended by [ADR-015](#adr-015--auto-color-naming-derive-on-read-vendored-ntc-nearest-srgb) — `name` → `customName`)
+Supersedes ADR-005; persistence later amended by ADR-015 (`name` → `customName`).
 
-**Context:** Channels-as-source-of-truth (ADR-005) is lossy: every input-model
-switch round-trips `channels → culori → channels` (rounded/clamped), so
-hsl→lch→hsl degrades the color and wide-gamut LCH chroma is lost. We also need a
-stable canonical color to compute tints from later. A **16-bit hex** source was
-considered for precision, but culori (and CSS) cap hex at 8 bits/channel
-(`formatHex`/`formatHex8`); a 12-digit hex would be a hand-rolled format culori
-can't parse — rejected as a hack.
+- **Context:** channels-as-truth round-trips lossily on every model switch and
+  can't hold wide-gamut LCH; we also need a stable canonical color for future
+  tints. (A 16-bit-hex source was rejected — culori/CSS cap hex at 8-bit.)
+- **Decision:** each key color stores an **unclamped culori `rgb`-mode `color`**;
+  `channels` become a derived editable buffer in the current model, hex derived
+  for display. Channel edit recomputes `color`; hex edit re-derives channels;
+  model switch leaves `color` untouched (reversible). Persist `color` only;
+  re-derive channels on load; migrate older files.
+- **Consequence:** lossless, reversible model switching; wide-gamut LCH survives.
+  Tradeoff: "ghost" channel values not encoded in the color (e.g. a hue at `s=0`)
+  don't survive a hex edit / reload — accepted.
 
-**Decision:** Store a **canonical culori color in float `rgb` mode** on each key
-color (`KeyColor.color`), left **unclamped** so wide-gamut colors persist as
-extended sRGB. This is culori-native and the honest version of the "16-bit hex"
-idea — rgb floats are hex without 8-bit quantization. `channels` become a
-**derived editable buffer** in the current `inputColorModel`; hex is derived for
-display. Update rules (in the store):
+## ADR-014 — Model-aware hue ring + gamut-mapped rendering
 
-- **channel edit** → keep the typed strings, recompute `color` from the full
-  channel set (`channelsToColor`).
-- **hex edit** → set `color` (`hexToColor`), then re-derive `channels`.
-- **input-model switch** → `color` untouched; only re-derive `channels` into the
-  new model (`colorToChannels`). Now fully reversible.
+Amends ADR-011.
 
-Helpers in `color/models.ts`: `channelsToColor` (`fromChannels` → `converter('rgb')`,
-no clamp), `colorToChannels` (`toChannels`, hsl/hsv still gamut-map per ADR-007),
-`colorToHex` (`formatHex`, sRGB-clamped for display), `hexToColor`. Removed
-`hexToChannels` and `recomputeChannels`; `channelsToHex` stays (picker gradient).
+- **Context:** the wheel painted a static HSL conic (LCH hue ≠ HSL hue, so the
+  color under the cursor was wrong), and naive per-channel hex clamping made
+  out-of-sRGB LCH ends over-bright instead of dark/white.
+- **Decision:** map all display hex through `toGamut('rgb','oklch')`; paint the
+  conic per model via `hueRingColor(hue)` / `buildHueWheelConic`; hue 0° at the
+  right (`ANGLE_OFFSET_DEG = 90`).
+- **Scope (deliberately partial):** the wheel keeps a white center overlay and is
+  L-independent (ring fixed at L=55); a full L-aware disc was deferred.
 
-**Persistence:** only `color` is written to `sharedPluginData`; `channels` are
-re-derived on load (`PersistedDocument`/`PersistedKeyColor` are loose types).
-`hydrate` migrates older files (no `color`) by reconstructing it from their
-stored `channels` + `inputColorModel`, then re-deriving `channels`. Undo history
-keeps the full runtime doc (incl. the channel buffer).
+## ADR-015 — Auto color naming (derive-on-read)
 
-**Consequences:** Lossless precision and reversible model switching; wide-gamut
-LCH survives a round-trip. Tints (future) read `color`. Tradeoff: "ghost" channel
-values not encoded in the color — a hue set on a fully desaturated color, etc. —
-don't survive a hex edit / model switch / reload (the canonical color has no hue
-at `s=0`). Same class of issue as ADR-007 gamut handling; accepted.
+Amends the persistence note in ADR-013.
 
----
+- **Context:** "new color N" is noise; names should follow the color yet stay put
+  once a user renames.
+- **Decision:** `customName: string | null`; effective name
+  `customName ?? autoName(color)` derived on read (auto name never stored). Match
+  nearest sRGB over a vendored ~1.5k *Name that Color* list (CC BY 2.5) — chosen
+  over a larger list / online API. Persist `customName` only; migrate legacy
+  `name`.
+- **Consequence:** names can't drift from the color; ~40 KB list in the bundle;
+  duplicate auto names possible (export-time dedupe deferred).
 
-## ADR-014 — Model-aware hue ring, gamut-mapped rendering, hue 0 at right
+## ADR-016 — Canvas selection fills (eyedropper, add-matching)
 
-**Date:** 2026-06-16 · **Status:** accepted (amends ADR-011)
+- **Context:** Figma's native eyedropper isn't exposed to plugins; the browser
+  `EyeDropper` API was rejected (iframe-runtime uncertainty). Read fills of
+  selected nodes instead.
+- **Decision:** the main thread collects the top-level selection's visible SOLID
+  fills (deduped) → an **ephemeral** UI store (out of undo/persistence); a
+  per-card eyedropper uses `fills[0]`, add-matching appends all.
+- **Consequence:** offline, no manifest/network change. Assumes an sRGB document,
+  ignores paint opacity, won't refresh without a selection change.
 
-**Context:** Two LCH picker defects. (1) The hue wheel painted a **static HSL**
-conic, but LCH hue ≠ HSL hue (e.g. HSL 0° = red, but that pixel's LCH hue is 41),
-so the color under the cursor didn't match the color being selected. (2) All
-display hex went through `formatHex`, a **naive per-channel clamp**: an out-of-sRGB
-LCH color (high C at extreme L) clamped to a vivid color instead of darkening —
-e.g. `lch(5 120 30)` showed `#760000` instead of near-black `#2c0900`, and
-`lch(97 120 30)` showed pink `#ff818b` instead of `#ffffff`. The wheel's hue
-origin was also at an arbitrary angle (hue 225° at top).
+## ADR-017 — Icon-button tooltips via `@floating-ui/dom`
 
-**Decision:**
-- **Gamut-mapped rendering:** `colorToHex` / `channelsToHex` map through
-  `toGamut('rgb','oklch')` before `formatHex`, so unreachable chroma reduces
-  toward the L-appropriate gray (dark stays dark, light → white). In-gamut
-  hsl/hsv colors are unchanged (toGamut is identity there). Extends ADR-007 from
-  channel-reading to all hex output (track gradient, swatches, handles).
-- **Model-aware hue ring:** each `ColorModelDef` gains `hueRingColor(hue)` (its
-  fully-saturated color at the rim: hsl `s1 l.5`, hsv `s1 v1`, lch `l55 c150`).
-  `buildHueWheelConic(model)` samples it every 15° (gamut-mapped) into the conic;
-  `HueWheel` takes the ring as a `conic` prop (mirrors `Gradient`'s `gradient`).
-- **Hue axis:** `ANGLE_OFFSET_DEG = 90` → hue 0° strictly at the right (east),
-  increasing clockwise; one constant drives both handle geometry and the conic.
-
-**Scope (deliberately partial):** the wheel keeps the **white** center overlay
-and stays **L-independent** (LCH ring fixed at L=55), so under the handle the
-*hue* is truthful but not the lightness, and the disc doesn't darken with L. A
-full model+L-aware disc (gray-at-current-L overlay, ring at live L) was deferred
-as a later increment.
-
-**Consequences:** LCH picking is truthful in hue and no longer shows over-bright
-ends. Geometry/channel writes were already correct — only rendering changed.
-`channelsToHex` retained (axis gradient); `formatHex` direct use removed from the
-display path.
-
----
-
-## ADR-015 — Auto color naming (derive-on-read, vendored ntc, nearest sRGB)
-
-**Date:** 2026-06-16 · **Status:** accepted (amends the persistence note in ADR-013)
-
-**Context:** Default names like "new color N" are noise; a key color should carry
-a real name so the palette is export-ready (named variables). Names must follow
-the color by default, yet stay put once a user renames.
-
-**Decision:**
-- **Model:** `KeyColor.name` → `customName: string | null`. Effective name is
-  **derived on read**: `resolveName = customName ?? autoName(color)`. The auto
-  name is never stored, so it tracks the color with zero logic in color-mutating
-  actions and survives a model switch untouched. Persist `customName` only;
-  migrate legacy `name` as a custom name on load.
-- **Source:** vendored `colorNames.data.ts` (~1.5k *Name that Color* entries,
-  CC BY 2.5, attributed) — small "stub" pack, no npm dependency. Chosen over the
-  larger `color-name-list` (don't need density — users rename anyway) and over an
-  online API (offline, no privacy leak).
-- **Match:** nearest by Euclidean distance in sRGB (simplest; good enough at this
-  density), against the displayed gamut-mapped hex.
-- **`NameInput`:** draft + commit on blur/Enter; empty → null (auto, re-appears
-  immediately); Escape cancels; shows live `value` when unfocused.
-
-**Consequences:** Names can't drift from color (single source of truth). Two auto
-colors can resolve to the same name → export-time dedupe deferred. Naming needs
-the vendored list in the bundle (~40 KB).
-
----
-
-## ADR-016 — Canvas selection fills: ephemeral store, eyedropper, add-matching
-
-**Date:** 2026-06-16 · **Status:** accepted
-
-**Context:** Users want to pull colors off the canvas. Figma's **native
-eyedropper/color-picker is not exposed to plugins** (confirmed: nothing in
-`@figma/plugin-typings`); the browser `EyeDropper` API was rejected (not in
-plugin/stdlib typings, uncertain iframe runtime). The reliable path is reading
-fills of selected nodes via the main thread.
-
-**Decision:**
-- **Main thread** listens to `selectionchange` / `currentpagechange` (+ a
-  `REQUEST_SELECTION_FILLS` ping on UI mount to dodge the listener race), reads
-  **top-level** selection only, collects visible `SOLID` fills as hex, **dedupes**,
-  and emits `SELECTION_FILLS`.
-- **Ephemeral UI store** `store/selection.ts` (plain zustand, `{ fills }`) — kept
-  **out** of the palette store so selection never touches undo/persistence.
-- **UI:** per-card eyedropper (action row, shown when fills exist) → `fills[0]`
-  via `setKeyColorFromHex`; an add-matching button by "+" (disabled without fills)
-  → `addKeyColors(fills)` (one undo step).
-
-**Consequences:** Works offline, no manifest/network changes. Limitations:
-assumes sRGB document, ignores paint opacity, and won't refresh if a selected
-layer's fill changes without a selection change (could add `documentchange`
-later).
+- **Context:** icon buttons need hover tooltips (dwell delay, arrow, smart
+  positioning) matching Figma; the DS ships none.
+- **Decision:** `@floating-ui/dom` (framework-agnostic, no React types — fits
+  ADR-002) + a custom `components/Tooltip` (offset/flip/shift/arrow, `fixed` to
+  escape card overflow; colors hard-coded dark since Figma tooltips are
+  theme-independent).
+- **Constraint (non-obvious, affects future pointer UI):** in the plugin iframe
+  `pointerleave` and `element.matches(':hover')` are **unreliable**. Hover is
+  therefore tracked via a global `pointermove` (target-containment) as the trusted
+  signal for both show and hide; tooltips must also work on disabled buttons
+  (`.trigger :disabled { pointer-events: none }`).

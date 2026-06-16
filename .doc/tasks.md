@@ -4,6 +4,10 @@ Volatile working state. Last updated: 2026-06-16.
 
 ## Done
 
+- **Icon-button tooltips** (ADR-017): `components/Tooltip` on `@floating-ui/dom`
+  (offset/flip/shift/arrow, `fixed` strategy, 400 ms hover delay, keyboard
+  `:focus-visible`); Figma-style dark bubble; wraps every icon button incl.
+  disabled ones (undo/redo).
 - **Undo/redo hotkeys:** Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z (global `keydown` in
   `App`), skipped while a text field is focused.
 - **Canvas selection → palette** (ADR-016): main-thread tracks top-level

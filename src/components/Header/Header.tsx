@@ -7,6 +7,7 @@ import {
 import { useRef, useState } from 'preact/hooks'
 import { Popover } from '@/components/Popover/Popover'
 import { SettingsPopover } from '@/components/SettingsPopover/SettingsPopover'
+import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { useTemporalStore } from '@/store'
 import styles from './Header.css'
 
@@ -22,18 +23,24 @@ export function Header() {
   return (
     <header class={styles.header}>
       <div class={styles.actions}>
-        <IconButton onClick={() => undo()} disabled={canUndo === false}>
-          <IconNavigateBack24 />
-        </IconButton>
-        <IconButton onClick={() => redo()} disabled={canRedo === false}>
-          <IconNavigateForward24 />
-        </IconButton>
+        <Tooltip content="Undo">
+          <IconButton onClick={() => undo()} disabled={canUndo === false}>
+            <IconNavigateBack24 />
+          </IconButton>
+        </Tooltip>
+        <Tooltip content="Redo">
+          <IconButton onClick={() => redo()} disabled={canRedo === false}>
+            <IconNavigateForward24 />
+          </IconButton>
+        </Tooltip>
       </div>
 
       <div class={styles.settingsAnchor} ref={anchorRef}>
-        <IconButton onClick={() => setSettingsOpen((open) => !open)}>
-          <IconSettings24 />
-        </IconButton>
+        <Tooltip content="Settings">
+          <IconButton onClick={() => setSettingsOpen((open) => !open)}>
+            <IconSettings24 />
+          </IconButton>
+        </Tooltip>
         <Popover
           open={settingsOpen}
           onClose={() => setSettingsOpen(false)}

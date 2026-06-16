@@ -1,6 +1,7 @@
 import { IconButton, IconPlusSmall24, IconSelectMatchingSmall24 } from '@create-figma-plugin/ui'
 import { useEffect, useRef } from 'preact/hooks'
 import { KeyColorCard } from './KeyColorCard'
+import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { usePaletteStore } from '@/store'
 import { useSelectionStore } from '@/store/selection'
 import styles from './KeyColorsSection.css'
@@ -41,12 +42,16 @@ export function KeyColorsSection() {
       <div class={styles.header}>
         <span class={styles.title}>Key colors</span>
         <div class={styles.actions}>
-          <IconButton onClick={handleAddMatching} disabled={selectionFills.length === 0}>
-            <IconSelectMatchingSmall24 />
-          </IconButton>
-          <IconButton onClick={handleAdd}>
-            <IconPlusSmall24 />
-          </IconButton>
+          <Tooltip content="Add colors from selection">
+            <IconButton onClick={handleAddMatching} disabled={selectionFills.length === 0}>
+              <IconSelectMatchingSmall24 />
+            </IconButton>
+          </Tooltip>
+          <Tooltip content="Add color">
+            <IconButton onClick={handleAdd}>
+              <IconPlusSmall24 />
+            </IconButton>
+          </Tooltip>
         </div>
       </div>
 

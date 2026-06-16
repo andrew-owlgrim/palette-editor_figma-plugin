@@ -12,7 +12,17 @@ Detail lives in `.doc/` — keep this file thin, don't duplicate.
 - [.doc/architecture.md](.doc/architecture.md) — data model, module map, threads, build specifics
 - [.doc/tasks.md](.doc/tasks.md) — active work + status (volatile)
 - [.doc/backlog.md](.doc/backlog.md) — deferred / potential tasks (no owner or deadline)
-- [.doc/decisions.md](.doc/decisions.md) — decision log (ADR, append-only)
+- [.doc/decisions.md](.doc/decisions.md) — decision log (ADR; strategic only — see below)
+
+**Keeping `decisions.md` minimal:** it records *strategic* decisions and
+implementation forks only — the **why** behind a non-obvious choice (incl.
+rejected alternatives) and constraints future work must respect. Before adding an
+entry, ask "does this change an architecture/feature decision later?" If it's a
+detail readable from the code or `architecture.md` (helper names, exact values,
+step-by-step mechanics, one-off bug fixes), leave it out. Keep each entry to
+context → decision → consequence/constraint; no `Date`/`Status: accepted` lines.
+Numbers are **stable** (referenced across docs) — never renumber; collapse a
+superseded/removed entry to a one-line tombstone instead of deleting it.
 
 ## Module map
 

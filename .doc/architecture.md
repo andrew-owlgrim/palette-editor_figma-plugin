@@ -236,6 +236,11 @@ App (app/App.tsx)
   custom one (plain `useEffect`: outside-click via `containerRef.contains` +
   Escape). With an `anchorRef` it positions `fixed` from the trigger rect
   (`placement="right-top"`); without one it keeps the CSS-anchored default.
+- `components/Tooltip` wraps every icon button (ADR-017): a custom hover/focus
+  tooltip on `@floating-ui/dom` (offset/flip/shift/arrow, `fixed` strategy so it
+  escapes card overflow, 400 ms dwell delay). Figma-style dark bubble with
+  hard-coded colors (Figma tooltips are dark in both themes). The trigger is
+  wrapped in an `inline-flex` span so tooltips also show on disabled buttons.
 - Transient UI state (popover open, etc.) lives in component `useState`, never in
   the store — so it stays out of undo history and persistence.
 
