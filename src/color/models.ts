@@ -1,4 +1,4 @@
-import { converter, formatHex, parse } from 'culori'
+import { converter, formatHex, parse, toGamut } from 'culori'
 import type { Color } from 'culori'
 import type { ColorChannels, InputColorModel } from '@/types'
 
@@ -6,12 +6,18 @@ const toHsl = converter('hsl')
 const toHsv = converter('hsv')
 const toLch = converter('lch')
 
+// HSL/HSV are sRGB-based and cannot represent wide-gamut colors. Map any color
+// into the sRGB gamut (CSS Color 4 algorithm, chroma reduction in OKLCH) before
+// reading hsl/hsv. Using toGamut (not clampChroma/clampRgb) also snaps near-white
+// /near-black to exact rgb, avoiding floating-point dust that would otherwise
+// blow up the numerically-unstable HSL saturation at extreme lightness.
+const toSrgb = toGamut('rgb', 'oklch')
+
 export interface ChannelDef {
   id: string
   label: string
   minimum: number
   maximum: number
-  suffix?: string
   integer?: boolean
 }
 
@@ -27,9 +33,12 @@ function num(value: string | undefined, fallback = 0): number {
   return Number.isFinite(parsed) ? parsed : fallback
 }
 
-function round(value: number, decimals = 0): string {
+// Clamp into [min, max] then round — guarantees the displayed value never
+// falls outside the channel's valid range.
+function fmt(value: number, decimals: number, min: number, max: number): string {
+  const clamped = Math.min(max, Math.max(min, value))
   const factor = 10 ** decimals
-  return String(Math.round((value + Number.EPSILON) * factor) / factor)
+  return String(Math.round((clamped + Number.EPSILON) * factor) / factor)
 }
 
 export const MODELS: Record<InputColorModel, ColorModelDef> = {
@@ -37,12 +46,16 @@ export const MODELS: Record<InputColorModel, ColorModelDef> = {
     id: 'hsl',
     channels: [
       { id: 'h', label: 'H', minimum: 0, maximum: 360, integer: true },
-      { id: 's', label: 'S', minimum: 0, maximum: 100, suffix: '%', integer: true },
-      { id: 'l', label: 'L', minimum: 0, maximum: 100, suffix: '%', integer: true },
+      { id: 's', label: 'S', minimum: 0, maximum: 100, integer: true },
+      { id: 'l', label: 'L', minimum: 0, maximum: 100, integer: true },
     ],
     toChannels(color) {
-      const c = toHsl(color)
-      return { h: round(c.h ?? 0), s: round((c.s ?? 0) * 100), l: round((c.l ?? 0) * 100) }
+      const c = toHsl(toSrgb(color))
+      return {
+        h: fmt(c.h ?? 0, 0, 0, 360),
+        s: fmt((c.s ?? 0) * 100, 0, 0, 100),
+        l: fmt((c.l ?? 0) * 100, 0, 0, 100),
+      }
     },
     fromChannels(ch) {
       return { mode: 'hsl', h: num(ch.h), s: num(ch.s) / 100, l: num(ch.l) / 100 }
@@ -52,12 +65,16 @@ export const MODELS: Record<InputColorModel, ColorModelDef> = {
     id: 'hsv',
     channels: [
       { id: 'h', label: 'H', minimum: 0, maximum: 360, integer: true },
-      { id: 's', label: 'S', minimum: 0, maximum: 100, suffix: '%', integer: true },
-      { id: 'v', label: 'V', minimum: 0, maximum: 100, suffix: '%', integer: true },
+      { id: 's', label: 'S', minimum: 0, maximum: 100, integer: true },
+      { id: 'v', label: 'V', minimum: 0, maximum: 100, integer: true },
     ],
     toChannels(color) {
-      const c = toHsv(color)
-      return { h: round(c.h ?? 0), s: round((c.s ?? 0) * 100), v: round((c.v ?? 0) * 100) }
+      const c = toHsv(toSrgb(color))
+      return {
+        h: fmt(c.h ?? 0, 0, 0, 360),
+        s: fmt((c.s ?? 0) * 100, 0, 0, 100),
+        v: fmt((c.v ?? 0) * 100, 0, 0, 100),
+      }
     },
     fromChannels(ch) {
       return { mode: 'hsv', h: num(ch.h), s: num(ch.s) / 100, v: num(ch.v) / 100 }
@@ -72,7 +89,11 @@ export const MODELS: Record<InputColorModel, ColorModelDef> = {
     ],
     toChannels(color) {
       const c = toLch(color)
-      return { l: round(c.l ?? 0), c: round(c.c ?? 0, 1), h: round(c.h ?? 0) }
+      return {
+        l: fmt(c.l ?? 0, 0, 0, 100),
+        c: fmt(c.c ?? 0, 1, 0, 150),
+        h: fmt(c.h ?? 0, 0, 0, 360),
+      }
     },
     fromChannels(ch) {
       return { mode: 'lch', l: num(ch.l), c: num(ch.c), h: num(ch.h) }

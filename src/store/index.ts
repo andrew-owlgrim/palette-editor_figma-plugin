@@ -11,6 +11,7 @@ function newId(): string {
 }
 
 interface PaletteActions {
+  hydrate: (document: PaletteDocument) => void
   addKeyColor: () => void
   removeKeyColor: (id: string) => void
   renameKeyColor: (id: string, name: string) => void
@@ -31,6 +32,8 @@ export const usePaletteStore = create<PaletteStore>()(
   temporal(
     (set) => ({
       ...initialDocument,
+
+      hydrate: (document) => set({ keyColors: document.keyColors, settings: document.settings }),
 
       addKeyColor: () =>
         set((state) => ({

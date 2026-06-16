@@ -1,3 +1,5 @@
+import type { EventHandler } from '@create-figma-plugin/utilities'
+
 // Color model used for editing key-color channel inputs
 export type InputColorModel = 'hsl' | 'hsv' | 'lch'
 // Color model used later for blending/interpolation (stored only for now)
@@ -18,9 +20,14 @@ export interface Settings {
   blendingColorModel: BlendingColorModel
 }
 
-// Serializable document — the shape that will later be persisted to
-// clientStorage (per-user) and root.sharedPluginData (per-file).
+// Serializable document persisted per-file via root.sharedPluginData.
 export interface PaletteDocument {
   keyColors: KeyColor[]
   settings: Settings
+}
+
+// UI -> main: persist the document to the file's shared plugin data.
+export interface SaveDocumentHandler extends EventHandler {
+  name: 'SAVE_DOCUMENT'
+  handler: (document: PaletteDocument) => void
 }

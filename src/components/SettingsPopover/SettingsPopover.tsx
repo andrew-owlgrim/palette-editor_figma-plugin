@@ -26,19 +26,23 @@ export function SettingsPopover() {
     <div class={styles.settings}>
       <div class={styles.field}>
         <div class={styles.label}>Input color model</div>
-        <SegmentedControl
-          options={INPUT_MODEL_OPTIONS}
-          value={inputColorModel}
-          onValueChange={(value) => setInputColorModel(value as InputColorModel)}
-        />
+        <div class={styles.control}>
+          <SegmentedControl
+            options={INPUT_MODEL_OPTIONS}
+            value={inputColorModel}
+            onValueChange={(value) => setInputColorModel(value as InputColorModel)}
+          />
+        </div>
       </div>
       <div class={styles.field}>
         <div class={styles.label}>Blending color model</div>
-        <SegmentedControl
-          options={BLENDING_MODEL_OPTIONS}
-          value={blendingColorModel}
-          onValueChange={(value) => setBlendingColorModel(value as BlendingColorModel)}
-        />
+        <div class={styles.control}>
+          <SegmentedControl
+            options={BLENDING_MODEL_OPTIONS}
+            value={blendingColorModel}
+            onValueChange={(value) => setBlendingColorModel(value as BlendingColorModel)}
+          />
+        </div>
       </div>
     </div>
   )

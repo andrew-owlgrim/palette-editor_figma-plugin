@@ -5,7 +5,6 @@ import {
   IconSettings24,
 } from '@create-figma-plugin/ui'
 import { useRef, useState } from 'preact/hooks'
-import logo from '@/assets/logo.svg'
 import { Popover } from '@/components/Popover/Popover'
 import { SettingsPopover } from '@/components/SettingsPopover/SettingsPopover'
 import { useTemporalStore } from '@/store'
@@ -22,11 +21,6 @@ export function Header() {
 
   return (
     <header class={styles.header}>
-      <div class={styles.brand}>
-        <img class={styles.logo} src={logo} alt="" />
-        <span class={styles.name}>Palette Editor</span>
-      </div>
-
       <div class={styles.actions}>
         <IconButton onClick={() => undo()} disabled={canUndo === false}>
           <IconNavigateBack24 />
@@ -34,18 +28,19 @@ export function Header() {
         <IconButton onClick={() => redo()} disabled={canRedo === false}>
           <IconNavigateForward24 />
         </IconButton>
-        <div class={styles.settingsAnchor} ref={anchorRef}>
-          <IconButton onClick={() => setSettingsOpen((open) => !open)}>
-            <IconSettings24 />
-          </IconButton>
-          <Popover
-            open={settingsOpen}
-            onClose={() => setSettingsOpen(false)}
-            containerRef={anchorRef}
-          >
-            <SettingsPopover />
-          </Popover>
-        </div>
+      </div>
+
+      <div class={styles.settingsAnchor} ref={anchorRef}>
+        <IconButton onClick={() => setSettingsOpen((open) => !open)}>
+          <IconSettings24 />
+        </IconButton>
+        <Popover
+          open={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          containerRef={anchorRef}
+        >
+          <SettingsPopover />
+        </Popover>
       </div>
     </header>
   )

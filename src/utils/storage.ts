@@ -1,7 +1,8 @@
 // All functions in this file run in the main thread (main.ts).
 // The Figma Plugin API is not available in the UI iframe.
 
-const PLUGIN_NAMESPACE = 'my-colors'
+// Figma restricts the namespace to alphanumeric characters and `_` (no `-`).
+const PLUGIN_NAMESPACE = 'mycolors'
 
 // ─── User storage ────────────────────────────────────────────────────────────
 // Persists between plugin sessions for the current user only.

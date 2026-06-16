@@ -44,7 +44,6 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
               value={keyColor.channels[channel.id] ?? ''}
               minimum={channel.minimum}
               maximum={channel.maximum}
-              suffix={channel.suffix}
               onValueInput={(value) => setKeyColorChannel(keyColor.id, channel.id, value)}
             />
           </div>
