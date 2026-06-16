@@ -31,8 +31,13 @@ export function App({ initialDocument }: AppProps) {
       if (timeoutId !== undefined) clearTimeout(timeoutId)
       timeoutId = setTimeout(() => {
         emit<SaveDocumentHandler>('SAVE_DOCUMENT', {
-          // Persist only the canonical color; channels are re-derived on load.
-          keyColors: state.keyColors.map(({ id, name, color }) => ({ id, name, color })),
+          // Persist the canonical color + custom name; channels and auto names
+          // are re-derived on load.
+          keyColors: state.keyColors.map(({ id, customName, color }) => ({
+            id,
+            customName,
+            color,
+          })),
           settings: state.settings,
         })
       }, SAVE_DEBOUNCE_MS)

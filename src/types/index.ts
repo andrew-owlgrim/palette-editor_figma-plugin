@@ -12,7 +12,9 @@ export type ColorChannels = Record<string, string>
 
 export interface KeyColor {
   id: string
-  name: string
+  // User-set name, or `null` for auto-naming (nearest named color, derived from
+  // `color` via color/naming.ts). Effective name = `resolveName(keyColor)`.
+  customName: string | null
   // Source of truth: a canonical culori color in float `rgb` mode (unclamped, so
   // wide-gamut colors survive as extended sRGB). hex shown in the UI and the
   // `channels` below are both derived from this. Tints/conversions read `color`.
@@ -38,7 +40,9 @@ export interface PaletteDocument {
 // that predate `color` (they carry `channels` instead) — see hydrate migration.
 export interface PersistedKeyColor {
   id: string
-  name: string
+  customName?: string | null
+  // Legacy: older files stored a plain `name`; migrated to `customName` on load.
+  name?: string
   color?: Color
   channels?: ColorChannels
 }

@@ -44,28 +44,3 @@
 .footer {
   padding: 6px 8px 8px;
 }
-
-/* Ghost name field: borderless at rest, border revealed on hover/focus. */
-.name {
-  width: 100%;
-  margin: 0;
-  padding: 4px 6px;
-  font-family: inherit;
-  color: var(--figma-color-text);
-  background-color: transparent;
-  border: 1px solid transparent;
-  border-radius: 4px;
-  outline: none;
-}
-
-.name::placeholder {
-  color: var(--figma-color-text-tertiary);
-}
-
-.name:hover {
-  border-color: var(--figma-color-border);
-}
-
-.name:focus {
-  border-color: var(--figma-color-border-selected);
-}

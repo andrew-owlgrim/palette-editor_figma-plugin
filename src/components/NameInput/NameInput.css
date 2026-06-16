@@ -1,0 +1,24 @@
+/* Ghost text field: borderless at rest, border revealed on hover/focus. */
+.input {
+  width: 100%;
+  margin: 0;
+  padding: 4px 6px;
+  font-family: inherit;
+  color: var(--figma-color-text);
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--figma-color-text-tertiary);
+}
+
+.input:hover {
+  border-color: var(--figma-color-border);
+}
+
+.input:focus {
+  border-color: var(--figma-color-border-selected);
+}

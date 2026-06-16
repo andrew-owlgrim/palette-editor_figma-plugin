@@ -2,8 +2,10 @@ import { IconButton, IconTrash24 } from '@create-figma-plugin/ui'
 import { useRef, useState } from 'preact/hooks'
 import { ColorPicker } from '@/components/ColorPicker/ColorPicker'
 import { ColorSample } from '@/components/ColorSample/ColorSample'
+import { NameInput } from '@/components/NameInput/NameInput'
 import { Popover } from '@/components/Popover/Popover'
 import { colorToHex } from '@/color/models'
+import { resolveName } from '@/color/naming'
 import { usePaletteStore } from '@/store'
 import type { KeyColor } from '@/types'
 import styles from './KeyColorCard.css'
@@ -14,7 +16,7 @@ interface KeyColorCardProps {
 
 export function KeyColorCard({ keyColor }: KeyColorCardProps) {
   const removeKeyColor = usePaletteStore((s) => s.removeKeyColor)
-  const renameKeyColor = usePaletteStore((s) => s.renameKeyColor)
+  const setKeyColorName = usePaletteStore((s) => s.setKeyColorName)
 
   const containerRef = useRef<HTMLDivElement>(null)
   const anchorRef = useRef<HTMLDivElement>(null)
@@ -45,13 +47,9 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
       </div>
 
       <div class={styles.footer}>
-        <input
-          class={styles.name}
-          type="text"
-          value={keyColor.name}
-          placeholder="Name"
-          spellcheck={false}
-          onInput={(event) => renameKeyColor(keyColor.id, event.currentTarget.value)}
+        <NameInput
+          value={resolveName(keyColor)}
+          onCommit={(name) => setKeyColorName(keyColor.id, name)}
         />
       </div>
     </div>

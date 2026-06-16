@@ -24,14 +24,18 @@ function newId(): string {
 // from `color` so the in-memory buffer is consistent with the canonical value.
 function normalizeKeyColor(k: PersistedKeyColor, model: InputColorModel): KeyColor {
   const color = k.color ?? channelsToColor(k.channels ?? {}, model)
-  return { id: k.id, name: k.name, color, channels: colorToChannels(color, model) }
+  // `customName` if present; otherwise migrate a legacy `name` as a custom name
+  // (preserve what the user had); else auto (null).
+  const customName = k.customName !== undefined ? k.customName : (k.name ?? null)
+  return { id: k.id, customName, color, channels: colorToChannels(color, model) }
 }
 
 interface PaletteActions {
   hydrate: (document: PersistedDocument) => void
   addKeyColor: () => void
   removeKeyColor: (id: string) => void
-  renameKeyColor: (id: string, name: string) => void
+  // null = revert to auto-naming; a string = pin a custom name.
+  setKeyColorName: (id: string, name: string | null) => void
   setKeyColorChannel: (id: string, channelId: string, value: string) => void
   setKeyColorChannels: (id: string, channels: ColorChannels) => void
   setKeyColorFromHex: (id: string, hex: string) => void
@@ -67,7 +71,7 @@ export const usePaletteStore = create<PaletteStore>()(
               ...state.keyColors,
               {
                 id: newId(),
-                name: 'white',
+                customName: null,
                 color,
                 channels: colorToChannels(color, state.settings.inputColorModel),
               },
@@ -78,9 +82,9 @@ export const usePaletteStore = create<PaletteStore>()(
       removeKeyColor: (id) =>
         set((state) => ({ keyColors: state.keyColors.filter((k) => k.id !== id) })),
 
-      renameKeyColor: (id, name) =>
+      setKeyColorName: (id, name) =>
         set((state) => ({
-          keyColors: state.keyColors.map((k) => (k.id === id ? { ...k, name } : k)),
+          keyColors: state.keyColors.map((k) => (k.id === id ? { ...k, customName: name } : k)),
         })),
 
       // A channel edit updates the typed buffer and recomputes the canonical
