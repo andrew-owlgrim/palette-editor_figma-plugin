@@ -38,6 +38,10 @@ export interface ColorModelDef {
   picker: PickerAxes
   toChannels: (color: Color) => ColorChannels
   fromChannels: (channels: ColorChannels) => Color
+  // Fully-saturated color at a given hue (max radius/chroma, representative
+  // lightness), used to paint the hue-wheel ring in THIS model's hue scale.
+  // LCH hue ≠ HSL hue, so the ring must be model-specific to stay truthful.
+  hueRingColor: (hue: number) => Color
 }
 
 function num(value: string | undefined, fallback = 0): number {
@@ -73,6 +77,7 @@ export const MODELS: Record<InputColorModel, ColorModelDef> = {
     fromChannels(ch) {
       return { mode: 'hsl', h: num(ch.h), s: num(ch.s) / 100, l: num(ch.l) / 100 }
     },
+    hueRingColor: (h) => ({ mode: 'hsl', h, s: 1, l: 0.5 }),
   },
   hsv: {
     id: 'hsv',
@@ -93,6 +98,7 @@ export const MODELS: Record<InputColorModel, ColorModelDef> = {
     fromChannels(ch) {
       return { mode: 'hsv', h: num(ch.h), s: num(ch.s) / 100, v: num(ch.v) / 100 }
     },
+    hueRingColor: (h) => ({ mode: 'hsv', h, s: 1, v: 1 }),
   },
   lch: {
     id: 'lch',
@@ -113,6 +119,8 @@ export const MODELS: Record<InputColorModel, ColorModelDef> = {
     fromChannels(ch) {
       return { mode: 'lch', l: num(ch.l), c: num(ch.c), h: num(ch.h) }
     },
+    // Max chroma (rim) at a vivid representative L=55; gamut-mapped on paint.
+    hueRingColor: (h) => ({ mode: 'lch', l: 55, c: 150, h }),
   },
 }
 
@@ -123,10 +131,11 @@ export function formatChannel(value: number, def: ChannelDef): string {
   return fmt(value, def.integer === true ? 0 : 1, def.minimum, def.maximum)
 }
 
-// Build a 6-digit hex from raw channels (naive sRGB clamp via formatHex).
-// Still used by the picker to paint axis-gradient stops from probe channels.
+// Build a 6-digit hex from raw channels, gamut-mapped (not naively clamped) so
+// out-of-sRGB colors reduce chroma toward the L-appropriate gray instead of
+// clamping to a vivid color. Used by the picker to paint axis-gradient stops.
 export function channelsToHex(channels: ColorChannels, model: InputColorModel): string {
-  return formatHex(MODELS[model].fromChannels(channels)) ?? '#000000'
+  return formatHex(toSrgb(MODELS[model].fromChannels(channels))) ?? '#000000'
 }
 
 const BLACK: Color = { mode: 'rgb', r: 0, g: 0, b: 0 }
@@ -146,9 +155,11 @@ export function colorToChannels(color: Color, model: InputColorModel): ColorChan
   return MODELS[model].toChannels(color)
 }
 
-// Canonical color -> 6-digit hex for display/swatches (sRGB-clamped).
+// Canonical color -> 6-digit hex for display/swatches. Gamut-mapped (chroma
+// reduction in OKLCH), so a wide-gamut canonical color shows its nearest
+// in-sRGB equivalent instead of a per-channel-clamped (over-bright) one.
 export function colorToHex(color: Color): string {
-  return formatHex(color) ?? '#000000'
+  return formatHex(toSrgb(color)) ?? '#000000'
 }
 
 // Parse a hex/CSS string into a canonical rgb color (falls back to black).

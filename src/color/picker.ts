@@ -1,13 +1,14 @@
 // Polar geometry for the hue wheel + helpers to map raw channel strings onto
 // the picker axes (angle / radius / lightness). Pure functions, no rendering.
 
-import { channelsToHex, formatChannel, MODELS } from '@/color/models'
+import { channelsToHex, colorToHex, formatChannel, MODELS } from '@/color/models'
 import type { ColorChannels, InputColorModel } from '@/types'
 
-// Rotates the wheel so hue 225° (the design's reference blue) sits at the top.
-// Cosmetic only: the same offset drives both the conic-gradient background and
-// the handle math, so a handle always sits on the hue it represents.
-export const ANGLE_OFFSET_DEG = 135
+// Rotates the wheel so hue 0° sits strictly to the right (east / 3 o'clock),
+// with hue increasing clockwise. The same offset drives both the conic-gradient
+// background and the handle math, so a handle always sits on the hue it
+// represents. (90° = east measured clockwise from the geometry's north origin.)
+export const ANGLE_OFFSET_DEG = 90
 
 // `from` angle for the CSS conic-gradient background, derived from the offset so
 // the painted hue matches handle positions exactly.
@@ -85,6 +86,20 @@ export function axisToChannel(t: number, model: InputColorModel): { id: string; 
   const def = channelDef(model, MODELS[model].picker.axis)
   const value = def.minimum + t * (def.maximum - def.minimum)
   return { id: def.id, value: formatChannel(value, def) }
+}
+
+// CSS conic-gradient for the hue ring, painted in the ACTIVE model's hue scale
+// (LCH hue ≠ HSL hue, so a static HSL ring would mislabel LCH colors). Samples
+// the model's fully-saturated `hueRingColor` every 15° (gamut-mapped to hex);
+// `from` matches the handle geometry so the painted hue sits under its handle.
+export function buildHueWheelConic(model: InputColorModel): string {
+  const steps = 24
+  const stops: string[] = []
+  for (let i = 0; i <= steps; i += 1) {
+    const hue = (i / steps) * 360
+    stops.push(`${colorToHex(MODELS[model].hueRingColor(hue))} ${Math.round(hue)}deg`)
+  }
+  return `conic-gradient(from ${WHEEL_CONIC_FROM_DEG}deg, ${stops.join(', ')})`
 }
 
 // CSS linear-gradient for the axis track: sample the color at N points along the

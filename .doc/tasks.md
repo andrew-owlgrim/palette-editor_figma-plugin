@@ -4,6 +4,11 @@ Volatile working state. Last updated: 2026-06-16.
 
 ## Done
 
+- **LCH picker fidelity** (ADR-014): hue wheel painted in each model's own hue
+  scale (`hueRingColor` + `buildHueWheelConic`); all display hex gamut-mapped
+  (`toGamut('rgb','oklch')`) so extreme-L/high-C ends darken/lighten instead of
+  clamping over-bright; hue 0° moved to the right (`ANGLE_OFFSET_DEG = 90`).
+  Partial by choice: white center overlay + L-independent ring (L=55) kept.
 - **Canonical float-rgb color as source of truth** (ADR-013): `KeyColor.color`
   (unclamped culori rgb) drives hex + channels; channels are a derived buffer.
   Channel edit → recompute color; hex edit → re-derive channels; model switch →

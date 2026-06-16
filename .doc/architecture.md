@@ -140,7 +140,7 @@ App (app/App.tsx)
         ├── ColorSample     square swatch → opens the color picker popover
         └── Popover         (right-top, anchored to the swatch)
             └── ColorPicker  GhostInput hex · HueWheel · Gradient · ChannelInputs
-                ├── HueWheel   conic hue + radial saturation; Handles (active + dots)
+                ├── HueWheel   model-aware conic hue + radial saturation; Handles (active + dots)
                 ├── Gradient   universal 1D slider (lightness/value axis); Handle
                 ├── Handle     white dot, optional color sample (draggable)
                 └── ChannelInput  TextboxNumeric w/ label in the DS `icon` slot
@@ -149,6 +149,14 @@ App (app/App.tsx)
 - Picker geometry + channel↔axis mapping: `src/color/picker.ts`. Drag binding:
   `src/hooks/usePointerDrag.ts` (pointer capture). Each `ColorModelDef` carries a
   `picker: { angle, radius, axis }` so the picker is model-agnostic. See ADR-011.
+- **Wheel hue axis:** `ANGLE_OFFSET_DEG = 90` places hue 0 strictly to the right
+  (east), hue increasing clockwise; the same constant drives both the handle math
+  and the conic `from` angle, so they always agree.
+- **Model-aware hue ring (ADR-014):** the wheel's conic is built per model by
+  `buildHueWheelConic`, sampling each `ColorModelDef.hueRingColor(hue)` (the
+  model's own hue scale — LCH hue ≠ HSL hue). All display hex goes through
+  gamut mapping (`colorToHex`/`channelsToHex` → `toGamut('rgb','oklch')`), so
+  out-of-sRGB colors reduce chroma toward gray instead of clamping to over-bright.
 - DS components used: `IconButton`, `SegmentedControl`, `Textbox`,
   `TextboxNumeric` (its string `value` + `onValueInput` map directly to raw
   channels; its `icon` slot holds the channel label). Icons carry a numeric

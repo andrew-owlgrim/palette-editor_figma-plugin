@@ -7,6 +7,7 @@ import type { WheelDot } from '@/components/HueWheel/HueWheel'
 import {
   axisToChannel,
   buildAxisGradient,
+  buildHueWheelConic,
   channelsToAxis,
   channelsToWheel,
   wheelToChannels,
@@ -36,6 +37,7 @@ export function ColorPicker({ keyColorId, onClose }: ColorPickerProps) {
   const { hue, radius01 } = channelsToWheel(channels, model)
   const axis = channelsToAxis(channels, model)
   const gradient = buildAxisGradient(channels, model)
+  const conic = buildHueWheelConic(model)
   const channelDefs = MODELS[model].channels
 
   const dots: WheelDot[] = keyColors
@@ -63,6 +65,7 @@ export function ColorPicker({ keyColorId, onClose }: ColorPickerProps) {
         hue={hue}
         radius01={radius01}
         color={hex}
+        conic={conic}
         dots={dots}
         onChange={(nextHue, nextRadius) =>
           setKeyColorChannels(keyColorId, wheelToChannels(nextHue, nextRadius, model))

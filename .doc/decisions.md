@@ -167,7 +167,11 @@ indicator, if wanted, should be static text outside the input.
 
 ## ADR-011 — Custom color picker; raw pointer drag (not DnD Kit)
 
-**Date:** 2026-06-16 · **Status:** accepted
+**Date:** 2026-06-16 · **Status:** accepted (wheel color fidelity & hue axis amended by [ADR-014](#adr-014--model-aware-hue-ring-gamut-mapped-rendering-hue-0-at-right))
+
+> Note: the "Wheel tint is sRGB-approximate for LCH" and "hue 225° at top
+> (`ANGLE_OFFSET_DEG`)" details below are superseded by ADR-014 — the ring is now
+> painted in each model's own hue scale (gamut-mapped) and hue 0° sits at the right.
 
 **Context:** Needed a custom color picker (hue wheel + lightness gradient +
 channel inputs) in a popover. The DS has no popover and no draggable
@@ -272,3 +276,42 @@ LCH survives a round-trip. Tints (future) read `color`. Tradeoff: "ghost" channe
 values not encoded in the color — a hue set on a fully desaturated color, etc. —
 don't survive a hex edit / model switch / reload (the canonical color has no hue
 at `s=0`). Same class of issue as ADR-007 gamut handling; accepted.
+
+---
+
+## ADR-014 — Model-aware hue ring, gamut-mapped rendering, hue 0 at right
+
+**Date:** 2026-06-16 · **Status:** accepted (amends ADR-011)
+
+**Context:** Two LCH picker defects. (1) The hue wheel painted a **static HSL**
+conic, but LCH hue ≠ HSL hue (e.g. HSL 0° = red, but that pixel's LCH hue is 41),
+so the color under the cursor didn't match the color being selected. (2) All
+display hex went through `formatHex`, a **naive per-channel clamp**: an out-of-sRGB
+LCH color (high C at extreme L) clamped to a vivid color instead of darkening —
+e.g. `lch(5 120 30)` showed `#760000` instead of near-black `#2c0900`, and
+`lch(97 120 30)` showed pink `#ff818b` instead of `#ffffff`. The wheel's hue
+origin was also at an arbitrary angle (hue 225° at top).
+
+**Decision:**
+- **Gamut-mapped rendering:** `colorToHex` / `channelsToHex` map through
+  `toGamut('rgb','oklch')` before `formatHex`, so unreachable chroma reduces
+  toward the L-appropriate gray (dark stays dark, light → white). In-gamut
+  hsl/hsv colors are unchanged (toGamut is identity there). Extends ADR-007 from
+  channel-reading to all hex output (track gradient, swatches, handles).
+- **Model-aware hue ring:** each `ColorModelDef` gains `hueRingColor(hue)` (its
+  fully-saturated color at the rim: hsl `s1 l.5`, hsv `s1 v1`, lch `l55 c150`).
+  `buildHueWheelConic(model)` samples it every 15° (gamut-mapped) into the conic;
+  `HueWheel` takes the ring as a `conic` prop (mirrors `Gradient`'s `gradient`).
+- **Hue axis:** `ANGLE_OFFSET_DEG = 90` → hue 0° strictly at the right (east),
+  increasing clockwise; one constant drives both handle geometry and the conic.
+
+**Scope (deliberately partial):** the wheel keeps the **white** center overlay
+and stays **L-independent** (LCH ring fixed at L=55), so under the handle the
+*hue* is truthful but not the lightness, and the disc doesn't darken with L. A
+full model+L-aware disc (gray-at-current-L overlay, ring at live L) was deferred
+as a later increment.
+
+**Consequences:** LCH picking is truthful in hue and no longer shows over-bright
+ends. Geometry/channel writes were already correct — only rendering changed.
+`channelsToHex` retained (axis gradient); `formatHex` direct use removed from the
+display path.
