@@ -1,4 +1,5 @@
 import type { EventHandler } from '@create-figma-plugin/utilities'
+import type { Color } from 'culori'
 
 // Color model used for editing key-color channel inputs
 export type InputColorModel = 'hsl' | 'hsv' | 'lch'
@@ -12,6 +13,12 @@ export type ColorChannels = Record<string, string>
 export interface KeyColor {
   id: string
   name: string
+  // Source of truth: a canonical culori color in float `rgb` mode (unclamped, so
+  // wide-gamut colors survive as extended sRGB). hex shown in the UI and the
+  // `channels` below are both derived from this. Tints/conversions read `color`.
+  color: Color
+  // Derived editable buffer: raw input strings in the CURRENT inputColorModel.
+  // Kept in state (not on disk) so inputs stay controlled and tolerate mid-edit.
   channels: ColorChannels
 }
 
@@ -20,14 +27,29 @@ export interface Settings {
   blendingColorModel: BlendingColorModel
 }
 
-// Serializable document persisted per-file via root.sharedPluginData.
+// Runtime document held by the store. `channels` is a derived buffer.
 export interface PaletteDocument {
   keyColors: KeyColor[]
+  settings: Settings
+}
+
+// Persisted form (root.sharedPluginData). Only the canonical `color` is stored;
+// `channels` are re-derived on load. Fields are loose to tolerate older files
+// that predate `color` (they carry `channels` instead) — see hydrate migration.
+export interface PersistedKeyColor {
+  id: string
+  name: string
+  color?: Color
+  channels?: ColorChannels
+}
+
+export interface PersistedDocument {
+  keyColors: PersistedKeyColor[]
   settings: Settings
 }
 
 // UI -> main: persist the document to the file's shared plugin data.
 export interface SaveDocumentHandler extends EventHandler {
   name: 'SAVE_DOCUMENT'
-  handler: (document: PaletteDocument) => void
+  handler: (document: PersistedDocument) => void
 }

@@ -4,6 +4,11 @@ Volatile working state. Last updated: 2026-06-16.
 
 ## Done
 
+- **Canonical float-rgb color as source of truth** (ADR-013): `KeyColor.color`
+  (unclamped culori rgb) drives hex + channels; channels are a derived buffer.
+  Channel edit → recompute color; hex edit → re-derive channels; model switch →
+  channels only (reversible). Persist `color` only; migrate older files on load.
+
 - Project init: `create-figma-plugin` v4 + Preact + TS, toolchain (ESLint,
   Prettier), build verified.
 - Stable dev setup: react→preact/compat type aliasing, culori/zustand/zundo/dnd-kit

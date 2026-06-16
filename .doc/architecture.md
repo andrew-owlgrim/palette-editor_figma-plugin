@@ -42,19 +42,28 @@ type BlendingColorModel = 'rgb' | 'hsl' | 'oklch'
 // e.g. hsl -> { h: '210', s: '50', l: '50' }
 type ColorChannels = Record<string, string>
 
-interface KeyColor { id: string; name: string; channels: ColorChannels }
+// `color` (culori Color, float rgb) is the source of truth; `channels` is a
+// derived buffer in the current input model.
+interface KeyColor { id: string; name: string; color: Color; channels: ColorChannels }
 interface Settings { inputColorModel: InputColorModel; blendingColorModel: BlendingColorModel }
-interface PaletteDocument { keyColors: KeyColor[]; settings: Settings }
+interface PaletteDocument { keyColors: KeyColor[]; settings: Settings }   // runtime
+
+// Persisted shape: only `color` stored, `channels` re-derived on load. Loose to
+// tolerate older files that predate `color` (carry `channels`) — migrated on load.
+interface PersistedKeyColor { id: string; name: string; color?: Color; channels?: ColorChannels }
+interface PersistedDocument { keyColors: PersistedKeyColor[]; settings: Settings }
 ```
 
-**Source of truth for a color** is its raw channel strings *plus* the current
-`inputColorModel`. There is no stored canonical color — the displayable color is
-derived on demand. Channels are strings (not numbers) on purpose: they keep
-exactly what the user typed and tolerate mid-edit states. `PaletteDocument` is
-the serializable unit that gets persisted.
+**Source of truth for a color** is `KeyColor.color` — a canonical culori color in
+float `rgb` mode, left **unclamped** so wide-gamut colors persist as extended
+sRGB (ADR-013). The hex shown in the UI and the `channels` are both derived from
+it. `channels` are strings (not numbers) on purpose: they keep exactly what the
+user typed and tolerate mid-edit states.
 
-When the input model changes, every key color's channels are recomputed
-(`old channels → culori color → new model channels`).
+Update rules: a **channel edit** keeps the typed strings and recomputes `color`;
+a **hex edit** sets `color` then re-derives `channels`; an **input-model switch**
+leaves `color` untouched and only re-derives `channels` into the new model — so a
+switch is fully reversible (no lossy channel→channel round-trip).
 
 ## Color models — `src/color/models.ts`
 
@@ -64,7 +73,9 @@ A `MODELS` registry, one `ColorModelDef` per `InputColorModel`, each with:
 - `toChannels(color)` — culori color → display strings (clamped to range).
 - `fromChannels(channels)` — display strings → culori color.
 
-Helpers: `channelsToHex`, `hexToChannels`, `recomputeChannels`.
+Canonical-color helpers: `channelsToColor` (channels → float rgb, unclamped),
+`colorToChannels` (color → channels for a model), `colorToHex` (display hex),
+`hexToColor` (parse). `channelsToHex` remains for the picker's axis gradient.
 
 **Gamut handling (important):** HSL/HSV are sRGB-based and can't represent
 wide-gamut colors, and HSL saturation is numerically unstable near
@@ -79,10 +90,13 @@ channel to `[min, max]` as a final guard. (See ADR-007.)
 `zustand` store wrapped in `zundo`'s `temporal`. State = `PaletteDocument`
 + actions:
 
-- `hydrate(document)` — replace `keyColors` + `settings` (used on load).
+- `hydrate(document)` — normalize a `PersistedDocument` into runtime key colors
+  (re-derive `channels` from `color`; migrate older files lacking `color`).
 - `addKeyColor` (white "white" at end), `removeKeyColor`, `renameKeyColor`,
-  `setKeyColorChannel`, `setKeyColorFromHex`.
-- `setInputColorModel` (recomputes all channels), `setBlendingColorModel`.
+  `setKeyColorChannel` / `setKeyColorChannels` (update buffer + recompute `color`),
+  `setKeyColorFromHex` (set `color` + re-derive channels).
+- `setInputColorModel` (re-derives channels from `color`, `color` untouched),
+  `setBlendingColorModel`.
 
 zundo options: `partialize` to `{ keyColors, settings }` (don't track action
 functions), `equality` via `JSON.stringify` (skip identical history entries),
@@ -107,7 +121,8 @@ Per-file, **load-on-open + save-on-change** (no live concurrent multi-user sync)
   baseline. This happens **before** the save subscription is attached, so the
   hydration is neither saved back (no echo) nor added to history.
 - **Save:** `App` subscribes to the store, debounced 400 ms, and
-  `emit('SAVE_DOCUMENT', { keyColors, settings })`. `main.ts` writes it with
+  `emit('SAVE_DOCUMENT', …)` with key colors stripped to `{ id, name, color }`
+  (channels are re-derived on load). `main.ts` writes it with
   `figma.root.setSharedPluginData`.
 
 `storage.ts` also has `clientStorage` (per-user) wrappers, currently unused —

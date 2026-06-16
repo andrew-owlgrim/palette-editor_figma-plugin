@@ -5,6 +5,7 @@ import type { ColorChannels, InputColorModel } from '@/types'
 const toHsl = converter('hsl')
 const toHsv = converter('hsv')
 const toLch = converter('lch')
+const toRgb = converter('rgb')
 
 // HSL/HSV are sRGB-based and cannot represent wide-gamut colors. Map any color
 // into the sRGB gamut (CSS Color 4 algorithm, chroma reduction in OKLCH) before
@@ -123,24 +124,35 @@ export function formatChannel(value: number, def: ChannelDef): string {
 }
 
 // Build a 6-digit hex from raw channels (naive sRGB clamp via formatHex).
+// Still used by the picker to paint axis-gradient stops from probe channels.
 export function channelsToHex(channels: ColorChannels, model: InputColorModel): string {
   return formatHex(MODELS[model].fromChannels(channels)) ?? '#000000'
 }
 
-// Parse a hex/CSS color into raw channels for the given model.
-export function hexToChannels(hex: string, model: InputColorModel): ColorChannels {
-  const color = parse(hex)
-  if (typeof color === 'undefined') {
-    return MODELS[model].toChannels({ mode: 'rgb', r: 0, g: 0, b: 0 })
-  }
+const BLACK: Color = { mode: 'rgb', r: 0, g: 0, b: 0 }
+
+// --- Canonical color (source of truth) <-> derived views -------------------
+// The canonical color lives in float `rgb` mode and is left UNCLAMPED, so a
+// wide-gamut color (e.g. high-chroma LCH) is preserved as extended sRGB and a
+// later model switch can reconstruct it losslessly.
+
+// Raw channels (in `model`) -> canonical rgb color.
+export function channelsToColor(channels: ColorChannels, model: InputColorModel): Color {
+  return toRgb(MODELS[model].fromChannels(channels))
+}
+
+// Canonical color -> raw channels for `model` (hsl/hsv gamut-map internally).
+export function colorToChannels(color: Color, model: InputColorModel): ColorChannels {
   return MODELS[model].toChannels(color)
 }
 
-// Re-express raw channels from one model into another (used on model switch).
-export function recomputeChannels(
-  channels: ColorChannels,
-  from: InputColorModel,
-  to: InputColorModel,
-): ColorChannels {
-  return MODELS[to].toChannels(MODELS[from].fromChannels(channels))
+// Canonical color -> 6-digit hex for display/swatches (sRGB-clamped).
+export function colorToHex(color: Color): string {
+  return formatHex(color) ?? '#000000'
+}
+
+// Parse a hex/CSS string into a canonical rgb color (falls back to black).
+export function hexToColor(hex: string): Color {
+  const parsed = parse(hex)
+  return typeof parsed === 'undefined' ? BLACK : toRgb(parsed)
 }

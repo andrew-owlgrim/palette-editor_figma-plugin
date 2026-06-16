@@ -1,8 +1,16 @@
 import { create, useStore } from 'zustand'
 import { temporal } from 'zundo'
 import type { TemporalState } from 'zundo'
-import type { BlendingColorModel, ColorChannels, InputColorModel, PaletteDocument } from '@/types'
-import { hexToChannels, recomputeChannels } from '@/color/models'
+import type {
+  BlendingColorModel,
+  ColorChannels,
+  InputColorModel,
+  KeyColor,
+  PaletteDocument,
+  PersistedDocument,
+  PersistedKeyColor,
+} from '@/types'
+import { channelsToColor, colorToChannels, hexToColor } from '@/color/models'
 
 let idCounter = 0
 function newId(): string {
@@ -10,8 +18,17 @@ function newId(): string {
   return `kc_${Date.now().toString(36)}_${idCounter.toString(36)}`
 }
 
+// Build a runtime key color from a persisted one. `color` (the source of truth)
+// is taken as-is; older files that predate it carry `channels` instead, so we
+// reconstruct `color` from them (migration). `channels` are always re-derived
+// from `color` so the in-memory buffer is consistent with the canonical value.
+function normalizeKeyColor(k: PersistedKeyColor, model: InputColorModel): KeyColor {
+  const color = k.color ?? channelsToColor(k.channels ?? {}, model)
+  return { id: k.id, name: k.name, color, channels: colorToChannels(color, model) }
+}
+
 interface PaletteActions {
-  hydrate: (document: PaletteDocument) => void
+  hydrate: (document: PersistedDocument) => void
   addKeyColor: () => void
   removeKeyColor: (id: string) => void
   renameKeyColor: (id: string, name: string) => void
@@ -34,19 +51,29 @@ export const usePaletteStore = create<PaletteStore>()(
     (set) => ({
       ...initialDocument,
 
-      hydrate: (document) => set({ keyColors: document.keyColors, settings: document.settings }),
+      hydrate: (document) =>
+        set({
+          keyColors: document.keyColors.map((k) =>
+            normalizeKeyColor(k, document.settings.inputColorModel),
+          ),
+          settings: document.settings,
+        }),
 
       addKeyColor: () =>
-        set((state) => ({
-          keyColors: [
-            ...state.keyColors,
-            {
-              id: newId(),
-              name: 'white',
-              channels: hexToChannels('#ffffff', state.settings.inputColorModel),
-            },
-          ],
-        })),
+        set((state) => {
+          const color = hexToColor('#ffffff')
+          return {
+            keyColors: [
+              ...state.keyColors,
+              {
+                id: newId(),
+                name: 'white',
+                color,
+                channels: colorToChannels(color, state.settings.inputColorModel),
+              },
+            ],
+          }
+        }),
 
       removeKeyColor: (id) =>
         set((state) => ({ keyColors: state.keyColors.filter((k) => k.id !== id) })),
@@ -56,41 +83,62 @@ export const usePaletteStore = create<PaletteStore>()(
           keyColors: state.keyColors.map((k) => (k.id === id ? { ...k, name } : k)),
         })),
 
+      // A channel edit updates the typed buffer and recomputes the canonical
+      // color from the full channel set. We keep the user's raw strings (don't
+      // re-derive channels from color here) so mid-edit input stays untouched.
       setKeyColorChannel: (id, channelId, value) =>
         set((state) => ({
-          keyColors: state.keyColors.map((k) =>
-            k.id === id ? { ...k, channels: { ...k.channels, [channelId]: value } } : k,
-          ),
+          keyColors: state.keyColors.map((k) => {
+            if (k.id !== id) return k
+            const channels = { ...k.channels, [channelId]: value }
+            return {
+              ...k,
+              channels,
+              color: channelsToColor(channels, state.settings.inputColorModel),
+            }
+          }),
         })),
 
       // Patch several channels of one key color in a single update — used by
       // the color picker's wheel drag (hue + saturation move together), so it
       // lands as one undo step / one save.
-      setKeyColorChannels: (id, channels) =>
+      setKeyColorChannels: (id, patch) =>
         set((state) => ({
-          keyColors: state.keyColors.map((k) =>
-            k.id === id ? { ...k, channels: { ...k.channels, ...channels } } : k,
-          ),
+          keyColors: state.keyColors.map((k) => {
+            if (k.id !== id) return k
+            const channels = { ...k.channels, ...patch }
+            return {
+              ...k,
+              channels,
+              color: channelsToColor(channels, state.settings.inputColorModel),
+            }
+          }),
         })),
 
+      // A hex edit sets the canonical color, then re-derives the channel buffer.
       setKeyColorFromHex: (id, hex) =>
-        set((state) => ({
-          keyColors: state.keyColors.map((k) =>
-            k.id === id
-              ? { ...k, channels: hexToChannels(hex, state.settings.inputColorModel) }
-              : k,
-          ),
-        })),
+        set((state) => {
+          const color = hexToColor(hex)
+          return {
+            keyColors: state.keyColors.map((k) =>
+              k.id === id
+                ? { ...k, color, channels: colorToChannels(color, state.settings.inputColorModel) }
+                : k,
+            ),
+          }
+        }),
 
+      // Switching the input model leaves the canonical color untouched and only
+      // re-derives each channel buffer into the new model — so a switch is fully
+      // reversible (no lossy channel->channel round-trip).
       setInputColorModel: (model) =>
         set((state) => {
-          const from = state.settings.inputColorModel
-          if (from === model) return {}
+          if (state.settings.inputColorModel === model) return {}
           return {
             settings: { ...state.settings, inputColorModel: model },
             keyColors: state.keyColors.map((k) => ({
               ...k,
-              channels: recomputeChannels(k.channels, from, model),
+              channels: colorToChannels(k.color, model),
             })),
           }
         }),

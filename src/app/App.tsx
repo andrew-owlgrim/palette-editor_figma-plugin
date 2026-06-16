@@ -3,16 +3,16 @@ import { useEffect } from 'preact/hooks'
 import { Header } from '@/components/Header/Header'
 import { KeyColorsSection } from '@/components/KeyColors/KeyColorsSection'
 import { usePaletteStore } from '@/store'
-import type { PaletteDocument, SaveDocumentHandler } from '@/types'
+import type { PersistedDocument, SaveDocumentHandler } from '@/types'
 import styles from './App.css'
 
 interface AppProps {
-  initialDocument?: PaletteDocument | null
+  initialDocument?: PersistedDocument | null
 }
 
 const SAVE_DEBOUNCE_MS = 400
 
-function isValidDocument(value: PaletteDocument | null | undefined): value is PaletteDocument {
+function isValidDocument(value: PersistedDocument | null | undefined): value is PersistedDocument {
   return value != null && Array.isArray(value.keyColors) && value.settings != null
 }
 
@@ -31,7 +31,8 @@ export function App({ initialDocument }: AppProps) {
       if (timeoutId !== undefined) clearTimeout(timeoutId)
       timeoutId = setTimeout(() => {
         emit<SaveDocumentHandler>('SAVE_DOCUMENT', {
-          keyColors: state.keyColors,
+          // Persist only the canonical color; channels are re-derived on load.
+          keyColors: state.keyColors.map(({ id, name, color }) => ({ id, name, color })),
           settings: state.settings,
         })
       }, SAVE_DEBOUNCE_MS)

@@ -1,5 +1,5 @@
 import { on, showUI } from '@create-figma-plugin/utilities'
-import type { PaletteDocument, SaveDocumentHandler } from '@/types'
+import type { PersistedDocument, SaveDocumentHandler } from '@/types'
 import { getFileData, setFileData } from '@/utils/storage'
 
 const DOCUMENT_KEY = 'document'
@@ -11,6 +11,6 @@ export default function () {
 
   // sharedPluginData reads are synchronous, so we can hand the stored document
   // straight to the UI as initial props.
-  const document = getFileData<PaletteDocument>(DOCUMENT_KEY)
+  const document = getFileData<PersistedDocument>(DOCUMENT_KEY)
   showUI({ width: 720, height: 640 }, { initialDocument: document })
 }

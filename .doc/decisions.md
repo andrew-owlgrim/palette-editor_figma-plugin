@@ -71,7 +71,7 @@ Tailwind without revisiting the esbuild-plugin tradeoff.
 
 ## ADR-005 — Raw channel strings as the source of truth
 
-**Date:** 2026-06-16 · **Status:** accepted
+**Date:** 2026-06-16 · **Status:** superseded by [ADR-013](#adr-013--canonical-float-rgb-color-as-the-source-of-truth)
 
 **Context:** Color inputs are edited in a user-chosen model (hsl/hsv/lch) and
 must persist exactly what was typed; conversions are lossy.
@@ -228,3 +228,47 @@ fields call them on focus/blur. Re-entrant calls keep the first snapshot.
 needs no wrapping (it commits once on blur). Pointer-drag listeners live on
 `window` (in `usePointerDrag`) so a drag keeps tracking outside the element and
 never sticks on an out-of-bounds release.
+
+---
+
+## ADR-013 — Canonical float-rgb color as the source of truth
+
+**Date:** 2026-06-16 · **Status:** accepted (supersedes ADR-005)
+
+**Context:** Channels-as-source-of-truth (ADR-005) is lossy: every input-model
+switch round-trips `channels → culori → channels` (rounded/clamped), so
+hsl→lch→hsl degrades the color and wide-gamut LCH chroma is lost. We also need a
+stable canonical color to compute tints from later. A **16-bit hex** source was
+considered for precision, but culori (and CSS) cap hex at 8 bits/channel
+(`formatHex`/`formatHex8`); a 12-digit hex would be a hand-rolled format culori
+can't parse — rejected as a hack.
+
+**Decision:** Store a **canonical culori color in float `rgb` mode** on each key
+color (`KeyColor.color`), left **unclamped** so wide-gamut colors persist as
+extended sRGB. This is culori-native and the honest version of the "16-bit hex"
+idea — rgb floats are hex without 8-bit quantization. `channels` become a
+**derived editable buffer** in the current `inputColorModel`; hex is derived for
+display. Update rules (in the store):
+
+- **channel edit** → keep the typed strings, recompute `color` from the full
+  channel set (`channelsToColor`).
+- **hex edit** → set `color` (`hexToColor`), then re-derive `channels`.
+- **input-model switch** → `color` untouched; only re-derive `channels` into the
+  new model (`colorToChannels`). Now fully reversible.
+
+Helpers in `color/models.ts`: `channelsToColor` (`fromChannels` → `converter('rgb')`,
+no clamp), `colorToChannels` (`toChannels`, hsl/hsv still gamut-map per ADR-007),
+`colorToHex` (`formatHex`, sRGB-clamped for display), `hexToColor`. Removed
+`hexToChannels` and `recomputeChannels`; `channelsToHex` stays (picker gradient).
+
+**Persistence:** only `color` is written to `sharedPluginData`; `channels` are
+re-derived on load (`PersistedDocument`/`PersistedKeyColor` are loose types).
+`hydrate` migrates older files (no `color`) by reconstructing it from their
+stored `channels` + `inputColorModel`, then re-deriving `channels`. Undo history
+keeps the full runtime doc (incl. the channel buffer).
+
+**Consequences:** Lossless precision and reversible model switching; wide-gamut
+LCH survives a round-trip. Tints (future) read `color`. Tradeoff: "ghost" channel
+values not encoded in the color — a hue set on a fully desaturated color, etc. —
+don't survive a hex edit / model switch / reload (the canonical color has no hue
+at `s=0`). Same class of issue as ADR-007 gamut handling; accepted.

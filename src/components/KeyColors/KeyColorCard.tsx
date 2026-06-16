@@ -4,7 +4,7 @@ import { ChannelInput } from '@/components/ChannelInput/ChannelInput'
 import { ColorPicker } from '@/components/ColorPicker/ColorPicker'
 import { ColorSample } from '@/components/ColorSample/ColorSample'
 import { Popover } from '@/components/Popover/Popover'
-import { channelsToHex, MODELS } from '@/color/models'
+import { colorToHex, MODELS } from '@/color/models'
 import { usePaletteStore } from '@/store'
 import type { KeyColor } from '@/types'
 import styles from './KeyColorCard.css'
@@ -24,7 +24,7 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
   const [pickerOpen, setPickerOpen] = useState(false)
 
   const channelDefs = MODELS[inputColorModel].channels
-  const hex = channelsToHex(keyColor.channels, inputColorModel)
+  const hex = colorToHex(keyColor.color)
 
   return (
     <div class={styles.card}>
