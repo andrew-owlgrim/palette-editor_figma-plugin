@@ -192,8 +192,10 @@ oriented and awkward for constrained radial/linear dragging.
 - Model-agnostic via `picker: { angle, radius, axis }` on each `ColorModelDef`.
 
 The `Popover` gained a `right-top` placement: when given an `anchorRef` it
-positions `fixed` from the trigger's bounding rect (escapes card overflow);
-without one it keeps the original CSS-anchored behavior.
+positions `fixed` from the trigger's bounding rect (escapes card overflow),
+measuring its own size to flip to the left side (right-top → left-top) and clamp
+when it would overflow the window; without one it keeps the original
+CSS-anchored behavior.
 
 **Consequences:** No canvas, cheap per-frame work (trig + a transform). Wheel
 tint is sRGB-approximate for LCH (handle value stays correct). LCH chroma radius

@@ -1,12 +1,16 @@
 import type { ComponentChildren } from 'preact'
-import { useEffect, useLayoutEffect, useState } from 'preact/hooks'
+import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
 import styles from './Popover.css'
 
 type AnchorRef = { readonly current: HTMLElement | null }
 
-// Right edge of the anchor → left edge of the popover, tops aligned, then nudged
-// out by `offset`. (Room for more placements later if needed.)
+// Preferred placement: right edge of the anchor → left edge of the popover, tops
+// aligned, nudged out by `offset`. Flips to the left side automatically when it
+// would overflow the right edge of the window (right-top → left-top).
 type Placement = 'right-top'
+
+// Keep the popover at least this far from the window edges.
+const VIEWPORT_MARGIN = 8
 
 interface PopoverProps {
   open: boolean
@@ -34,6 +38,7 @@ export function Popover({
   children,
 }: PopoverProps) {
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
+  const popoverRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     if (open === false) return
@@ -61,10 +66,30 @@ export function Popover({
     }
     function compute() {
       const anchor = anchorRef?.current
-      if (anchor == null) return
+      const popover = popoverRef.current
+      if (anchor == null || popover == null) return
       const rect = anchor.getBoundingClientRect()
-      // placement === 'right-top'
-      setPosition({ left: rect.right + offset, top: rect.top })
+      const { width, height } = popover.getBoundingClientRect()
+      const viewportWidth = document.documentElement.clientWidth
+      const viewportHeight = document.documentElement.clientHeight
+
+      // Horizontal: prefer the right side; flip to the left when it would
+      // overflow, then clamp so it never leaves the window.
+      let left = rect.right + offset
+      if (left + width + VIEWPORT_MARGIN > viewportWidth) {
+        const flipped = rect.left - offset - width
+        left = flipped >= VIEWPORT_MARGIN ? flipped : viewportWidth - width - VIEWPORT_MARGIN
+      }
+      left = Math.max(VIEWPORT_MARGIN, left)
+
+      // Vertical: top-aligned with the anchor, clamped into the window.
+      let top = rect.top
+      if (top + height + VIEWPORT_MARGIN > viewportHeight) {
+        top = viewportHeight - height - VIEWPORT_MARGIN
+      }
+      top = Math.max(VIEWPORT_MARGIN, top)
+
+      setPosition({ left, top })
     }
     compute()
     window.addEventListener('resize', compute)
@@ -76,9 +101,19 @@ export function Popover({
   }, [open, anchorRef, placement, offset])
 
   if (open === false) return null
-  if (position !== null) {
+  if (anchorRef != null) {
+    // Always rendered so it can be measured; kept invisible (but laid out) until
+    // its position is computed, to avoid a flash at the wrong spot.
     return (
-      <div class={styles.floating} style={{ left: `${position.left}px`, top: `${position.top}px` }}>
+      <div
+        ref={popoverRef}
+        class={styles.floating}
+        style={{
+          left: `${position?.left ?? 0}px`,
+          top: `${position?.top ?? 0}px`,
+          visibility: position === null ? 'hidden' : 'visible',
+        }}
+      >
         {children}
       </div>
     )
