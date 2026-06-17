@@ -1,6 +1,6 @@
-import { useRef, useState } from 'preact/hooks'
-import type { JSX } from 'preact'
-import styles from './StopInput.css'
+import { TextboxNumeric } from '@create-figma-plugin/ui'
+import { useState } from 'preact/hooks'
+import { SHADE_MAX } from '@/color/shades'
 
 interface StopInputProps {
   // Pinned value (0..1000), or null when auto.
@@ -11,27 +11,24 @@ interface StopInputProps {
   onCommit: (value: number | null) => void
 }
 
-// One shade-step value field (tailwind 1/1000 format). Mirrors NameInput: edits a
-// local draft, commits on blur/Enter (empty -> null = auto), Escape cancels. When
-// not focused it shows the pinned value, or empty so the auto value shows as the
-// placeholder.
+// DS numeric textbox (like ChannelInput, no icon): default styling, select-on-
+// focus, placeholder, min/max validation. RawTextboxNumeric is fully controlled
+// and renders `value` verbatim, so we drive it from a local STRING draft while
+// focused (mirroring exactly what's typed) — feeding a re-stringified number
+// straight back fought the controlled input and blocked typing. The parsed value
+// commits on blur; empty = auto (null).
 export function StopInput({ value, placeholder, onCommit }: StopInputProps) {
-  const display = value === null ? '' : String(value)
-  const [draft, setDraft] = useState(display)
+  const stored = value === null ? '' : String(value)
+  const [draft, setDraft] = useState(stored)
   const [focused, setFocused] = useState(false)
-  const cancelRef = useRef(false)
 
   function handleFocus() {
-    setDraft(display)
+    setDraft(stored)
     setFocused(true)
   }
 
   function handleBlur() {
     setFocused(false)
-    if (cancelRef.current) {
-      cancelRef.current = false
-      return
-    }
     const trimmed = draft.trim()
     if (trimmed === '') {
       onCommit(null)
@@ -41,27 +38,16 @@ export function StopInput({ value, placeholder, onCommit }: StopInputProps) {
     onCommit(Number.isFinite(parsed) ? parsed : null)
   }
 
-  function handleKeyDown(event: JSX.TargetedKeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') {
-      event.currentTarget.blur()
-    } else if (event.key === 'Escape') {
-      cancelRef.current = true
-      event.currentTarget.blur()
-    }
-  }
-
   return (
-    <input
-      class={styles.input}
-      type="text"
-      inputMode="numeric"
-      spellcheck={false}
+    <TextboxNumeric
+      value={focused ? draft : stored}
       placeholder={String(placeholder)}
-      value={focused ? draft : display}
+      minimum={0}
+      maximum={SHADE_MAX}
+      integer
+      onValueInput={setDraft}
       onFocus={handleFocus}
-      onInput={(event) => setDraft(event.currentTarget.value)}
       onBlur={handleBlur}
-      onKeyDown={handleKeyDown}
     />
   )
 }

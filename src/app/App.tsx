@@ -69,22 +69,25 @@ export function App({ initialDocument }: AppProps) {
 
   // Undo/redo hotkeys: Ctrl/Cmd+Z and Ctrl/Cmd+Shift+Z. Matches on `event.code`
   // (physical key) so it's layout-independent — `event.key` would be the
-  // localized character (e.g. 'я' on a Cyrillic layout) and miss. Skipped while a
-  // text field is focused so its own native undo keeps working.
+  // localized character (e.g. 'я' on a Cyrillic layout) and miss. Always drives
+  // the plugin's history and `preventDefault`s the browser's native textbox undo
+  // (which fights our store). If a field is focused, blur it first so its pending
+  // edit commits as a normal history entry, then undo operates on a clean state.
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       const mod = event.ctrlKey || event.metaKey
       if (!mod || event.code !== 'KeyZ') return
 
-      const target = event.target as HTMLElement | null
+      event.preventDefault()
+
+      const active = document.activeElement
       if (
-        target !== null &&
-        (target.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(target.tagName))
+        active instanceof HTMLElement &&
+        (active.isContentEditable || /^(?:INPUT|TEXTAREA|SELECT)$/.test(active.tagName))
       ) {
-        return
+        active.blur()
       }
 
-      event.preventDefault()
       const temporal = usePaletteStore.temporal.getState()
       if (event.shiftKey) temporal.redo()
       else temporal.undo()

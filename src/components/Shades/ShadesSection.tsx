@@ -1,6 +1,7 @@
 import { useMemo } from 'preact/hooks'
 import { CountStepper } from './CountStepper'
 import { StopInput } from './StopInput'
+import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { colorToHex } from '@/color/models'
 import { buildGradientSampler } from '@/color/gradient'
 import { resolveSteps, SHADE_MAX } from '@/color/shades'
@@ -41,12 +42,13 @@ export function ShadesSection() {
       <div class={styles.scroller}>
         <div class={styles.steps} style={columns}>
           {steps.map((value, i) => (
-            <StopInput
-              key={i}
-              value={value}
-              placeholder={resolved[i]}
-              onCommit={(next) => setShadeStep(i, next)}
-            />
+            <Tooltip key={i} content="specify stop">
+              <StopInput
+                value={value}
+                placeholder={resolved[i]}
+                onCommit={(next) => setShadeStep(i, next)}
+              />
+            </Tooltip>
           ))}
         </div>
 

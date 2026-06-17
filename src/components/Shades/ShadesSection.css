@@ -37,8 +37,22 @@
 }
 
 .swatch {
-  aspect-ratio: 1;
+  position: relative;
+  height: 40px;
   border-radius: 4px;
+}
+
+/* Border drawn inside via a pseudo-element so it overlays the fill instead of
+   adding to the box — keeps the grid columns from shifting. 15% of the content
+   color (`--figma-color-text` is black on light / white on dark) reads on any
+   swatch fill. */
+.swatch::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--figma-color-text) 15%, transparent);
+  border-radius: inherit;
+  pointer-events: none;
 }
 
 .empty {

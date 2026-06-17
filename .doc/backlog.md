@@ -40,3 +40,19 @@ anywhere on the card starts a reorder, which constrains in-card interactions
 instead of the entire card — or a dedicated handle. Weigh the clearer
 affordance and freed-up card surface against losing "grab anywhere" and the
 extra wiring (separate handle node, hover reveal).
+
+## Revisit input interaction & native Ctrl+Z behavior
+
+**Why:** the text/number fields use a patchwork of patterns — `NameInput` and
+`StopInput` keep a local draft and commit on blur, `ChannelInput` writes live via
+`onValueInput`, and the DS `RawTextboxNumeric` is fully controlled (a number fed
+back as `value` broke typing — see the Shades UI note in `architecture.md`).
+Meanwhile the global Ctrl/Cmd+Z handler now `preventDefault`s the browser's native
+textbox undo and blurs the focused field, so in-field undo no longer works at all.
+
+**Consider:** a single, consistent input model — draft vs. live, where commits
+happen, how Escape/blur behave — and a deliberate decision on native field undo:
+either restore per-field undo while a field is focused (and keep it out of the
+plugin history), or keep the unified plugin-history behavior but make it obvious.
+Audit all fields (`NameInput`, `StopInput`, `CountStepper`, `ChannelInput`,
+`GhostInput`) against whichever model is chosen.

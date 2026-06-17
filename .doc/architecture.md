@@ -151,6 +151,30 @@ autos by even index-distribution between set anchors / the 0&1000 edges),
 `clampStepValue` (keep a typed value between its set neighbors), and the
 count/`SHADE_MAX` constants.
 
+## Shades section UI — `src/components/Shades`
+
+`ShadesSection` renders the header (title + `CountStepper`) and, inside one
+horizontal `scroller`, two CSS grids that **share the same inline
+`grid-template-columns`** (`repeat(count, minmax(28px, 1fr))`) so the step row and
+the swatch grid stay column-aligned and scroll together. Swatch colors are
+memoized per row: one `buildGradientSampler` per `PaletteColor`, sampled at every
+resolved step (`value / 1000`). Swatches are display-only, fixed 40px tall, with
+the hairline border drawn **inside** via `::before` (`inset: 0`, `border-radius:
+inherit`, `color-mix(... var(--figma-color-text) 15% ...)`) so it never shifts the
+grid. `CountStepper` is −/+ `IconButton`s around a directly-editable field
+(clamped `[2, 26]`).
+
+- **`StopInput` is a controlled-input gotcha (learned the hard way):** the DS
+  `RawTextboxNumeric` renders `value` verbatim and reports edits as an already-
+  evaluated *number* (`onNumericValueInput`). Feeding a re-stringified number back
+  as `value` made the controlled value disagree with the typed text mid-keystroke,
+  so Preact reset the field — typing did nothing while the ±arrows (which write the
+  DOM imperatively) appeared to work. Fix: keep a **local string draft** as the
+  controlled `value` while focused (`onValueInput={setDraft}`, mirroring
+  `ChannelInput`), and commit the parsed number to the store on blur (empty =
+  `null` = auto). See [backlog](backlog.md) — the broader input/Ctrl+Z model is up
+  for review.
+
 ## Harmonious color generation — `src/color/harmony.ts` (ADR-018)
 
 `harmoniousColor(existing)` returns a color that fits an arbitrary existing set:
@@ -197,9 +221,10 @@ release/blur, so each interaction is one undo step (ADR-012).
 
 **Undo/redo hotkeys:** a `window` `keydown` listener in `App` maps
 **Ctrl/Cmd+Z** → `temporal.undo()` and **Ctrl/Cmd+Shift+Z** → `temporal.redo()`
-(same temporal store as the Header buttons). It no-ops while a text field is
-focused (`input`/`textarea`/`select`/contenteditable) so the field's native undo
-keeps working.
+(same temporal store as the Header buttons). It always `preventDefault`s the
+browser's native textbox undo (which would desync a focused field from the
+store); if a field is focused it `blur()`s it first so the pending edit commits
+as a normal history entry, then undo runs on a clean state.
 
 ## Persistence — `src/utils/storage.ts` + `main.ts` + `App.tsx`
 
@@ -269,7 +294,7 @@ App (app/App.tsx)
 └── ShadesSection          header: "Shades" + CountStepper (− [n] +); step row + swatch grid
     │                       both share one grid-template (aligned columns), scroll together
     ├── CountStepper        −/+ IconButtons around a directly-editable count field [2,26]
-    ├── StopInput           ghost numeric field per step; auto value as placeholder (null = auto)
+    ├── StopInput           DS TextboxNumeric (no icon); local string draft, commits parsed value on blur (empty = auto)
     └── (swatch grid)       display-only cells = sampleGradient(pc.stops, step/1000, blending)
 ```
 
