@@ -1,0 +1,48 @@
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--figma-color-text);
+}
+
+/* Scrolls the step row and the swatch grid together when steps overflow. */
+.scroller {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  overflow-x: auto;
+  padding-bottom: 4px;
+}
+
+.steps {
+  display: grid;
+  gap: 4px;
+}
+
+.grid {
+  display: grid;
+  gap: 4px;
+}
+
+.swatch {
+  aspect-ratio: 1;
+  border-radius: 4px;
+}
+
+.empty {
+  font-size: 11px;
+  color: var(--figma-color-text-secondary);
+  padding: 16px 0;
+}

@@ -3,53 +3,90 @@ import type { Color } from 'culori'
 
 // Color model used for editing key-color channel inputs
 export type InputColorModel = 'hsl' | 'hsv' | 'lch'
-// Color model used later for blending/interpolation (stored only for now)
+// Color model the shade gradient is blended/interpolated in
 export type BlendingColorModel = 'rgb' | 'hsl' | 'oklch'
+// Which end of the shade scale (step 0) is light vs dark. 'light-dark' = step 0
+// is light, the scale darkens as the step value grows (the tailwind convention).
+export type ToneAxisDirection = 'light-dark' | 'dark-light'
 
 // Raw input-field values keyed by channel id, interpreted in the CURRENT
 // inputColorModel. e.g. hsl -> { h: '210', s: '50', l: '50' }
 export type ColorChannels = Record<string, string>
 
-export interface KeyColor {
+// One key point of a palette color's shade gradient.
+export interface GradientStop {
   id: string
-  // User-set name, or `null` for auto-naming (nearest named color, derived from
-  // `color` via color/naming.ts). Effective name = `resolveName(keyColor)`.
-  customName: string | null
-  // Source of truth: a canonical culori color in float `rgb` mode (unclamped, so
-  // wide-gamut colors survive as extended sRGB). hex shown in the UI and the
-  // `channels` below are both derived from this. Tints/conversions read `color`.
+  // Position along the tone axis, 0..1 (0 and 1 are the scale ends).
+  position: number
+  // Canonical culori color in float `rgb` mode, left UNCLAMPED so wide-gamut
+  // colors survive as extended sRGB (ADR-013).
   color: Color
-  // Derived editable buffer: raw input strings in the CURRENT inputColorModel.
-  // Kept in state (not on disk) so inputs stay controlled and tolerate mid-edit.
+}
+
+// A named color "ramp": a shade gradient whose `keyStopId` stop is the seed the
+// user picks/names ("the key color"). Shades are sampled from `stops`. By default
+// the gradient is black & white endpoints with the key color between them at its
+// lightness; a future editor will let the user move/add/recolor stops.
+export interface PaletteColor {
+  id: string
+  // User-set name, or `null` for auto-naming from the key stop's color (nearest
+  // named color via color/naming.ts). Effective name = `resolveName(pc)`.
+  customName: string | null
+  // Sorted by position; endpoints at 0 and 1.
+  stops: GradientStop[]
+  // Which stop is the key color (the named seed). Always references a `stops` id.
+  keyStopId: string
+  // Derived editing buffer for the KEY stop: raw input strings in the CURRENT
+  // inputColorModel. Runtime-only (not persisted) — re-derived on load.
   channels: ColorChannels
 }
 
 export interface Settings {
   inputColorModel: InputColorModel
   blendingColorModel: BlendingColorModel
+  toneAxisDirection: ToneAxisDirection
+}
+
+// The shade scale: one entry per shade step, a target value on the 0..1000 tone
+// axis (tailwind 1/1000 format) or `null` = auto (evenly distributed between the
+// set anchors / the 0 & 1000 edges). The step count is `steps.length`.
+export interface ShadeScale {
+  steps: Array<number | null>
 }
 
 // Runtime document held by the store. `channels` is a derived buffer.
 export interface PaletteDocument {
-  keyColors: KeyColor[]
+  keyColors: PaletteColor[]
   settings: Settings
+  shades: ShadeScale
 }
 
-// Persisted form (root.sharedPluginData). Only the canonical `color` is stored;
-// `channels` are re-derived on load. Fields are loose to tolerate older files
-// that predate `color` (they carry `channels` instead) — see hydrate migration.
-export interface PersistedKeyColor {
+// Persisted form (root.sharedPluginData). The gradient `stops` + `keyStopId` are
+// the source of truth; `channels` and auto names are re-derived on load. Fields
+// are loose to tolerate older files — see the hydrate migration:
+//   - pre-gradient files carry a single `color` (or even older `channels`),
+//   - pre-`customName` files carry a plain `name`.
+export interface PersistedGradientStop {
+  id: string
+  position: number
+  color: Color
+}
+
+export interface PersistedPaletteColor {
   id: string
   customName?: string | null
-  // Legacy: older files stored a plain `name`; migrated to `customName` on load.
   name?: string
+  keyStopId?: string
+  stops?: PersistedGradientStop[]
+  // Legacy single-color form (migrated to a default gradient on load):
   color?: Color
   channels?: ColorChannels
 }
 
 export interface PersistedDocument {
-  keyColors: PersistedKeyColor[]
+  keyColors: PersistedPaletteColor[]
   settings: Settings
+  shades?: ShadeScale
 }
 
 // UI -> main: persist the document to the file's shared plugin data.

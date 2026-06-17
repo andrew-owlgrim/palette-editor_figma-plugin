@@ -1,0 +1,23 @@
+.stepper {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.field {
+  width: 40px;
+  margin: 0;
+  padding: 4px 6px;
+  font-family: inherit;
+  font-size: 11px;
+  text-align: center;
+  color: var(--figma-color-text);
+  background-color: var(--figma-color-bg-secondary);
+  border: 1px solid var(--figma-color-border);
+  border-radius: 6px;
+  outline: none;
+}
+
+.field:focus {
+  border-color: var(--figma-color-border-selected);
+}

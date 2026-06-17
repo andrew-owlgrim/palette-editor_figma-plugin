@@ -4,6 +4,12 @@ Volatile working state. Last updated: 2026-06-17.
 
 ## Done
 
+- **Shades + gradient model** (ADR-020/021): unified `KeyColor` → `PaletteColor`
+  (a gradient whose key stop is the seed); `color/gradient.ts` (default stops,
+  sampler, mirror) + `color/shades.ts` (0..1000 scale, `resolveSteps`). New
+  `components/Shades` (count stepper, per-step inputs, swatch grid). Tone axis
+  direction setting. Gradients persisted; key-stop position is a rewritable
+  default (recomputed from lightness on edit until the editor lands).
 - **Drag-and-drop reordering** (ADR-019): `@dnd-kit/sortable`,
   `horizontalListSortingStrategy`; whole card is the drag source
   (`PointerSensor` `distance: 1`); `DragOverlay` clone (`KeyColorCardPreview`) +
@@ -55,13 +61,12 @@ Volatile working state. Last updated: 2026-06-17.
 
 ## Next up
 
-- **Shades** — create gradient stops along lightness axis and make shade stops via linear interpolation in current color blening model.
-- **Stops panel** for editing shade stops
-- **Gradient editor** — edit shades gradient key stops.
+- **Gradient editor** — edit a key color's gradient key stops (move / add /
+  recolor). Detaches the key-stop position from the auto lightness default.
+- **Export** — shade grid → Figma variables / styles / Copy CSS.
 
 ## Backlog / ideas
 
 - Palette generation from key colors (scales / harmonies) — additional body blocks.
-- Blending using the configured blending color model.
 - Per-user palettes across files (via `clientStorage`; wrappers already exist).
 - Possibly: live concurrent multi-user sync (currently load-on-open only).

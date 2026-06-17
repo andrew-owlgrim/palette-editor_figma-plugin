@@ -2,17 +2,33 @@ import { create, useStore } from 'zustand'
 import { temporal } from 'zundo'
 import type { TemporalState } from 'zundo'
 import { arrayMove } from '@dnd-kit/sortable'
+import type { Color } from 'culori'
 import type {
   BlendingColorModel,
   ColorChannels,
   InputColorModel,
-  KeyColor,
+  PaletteColor,
   PaletteDocument,
   PersistedDocument,
-  PersistedKeyColor,
+  PersistedPaletteColor,
+  Settings,
+  ToneAxisDirection,
 } from '@/types'
 import { channelsToColor, colorToChannels, hexToColor } from '@/color/models'
 import { harmoniousColor } from '@/color/harmony'
+import {
+  buildDefaultStops,
+  keyColorOf,
+  mirrorStops,
+  setKeyColor,
+  sortStops,
+} from '@/color/gradient'
+import {
+  clampStepValue,
+  DEFAULT_SHADE_COUNT,
+  MAX_SHADE_COUNT,
+  MIN_SHADE_COUNT,
+} from '@/color/shades'
 
 let idCounter = 0
 function newId(): string {
@@ -20,16 +36,56 @@ function newId(): string {
   return `kc_${Date.now().toString(36)}_${idCounter.toString(36)}`
 }
 
-// Build a runtime key color from a persisted one. `color` (the source of truth)
-// is taken as-is; older files that predate it carry `channels` instead, so we
-// reconstruct `color` from them (migration). `channels` are always re-derived
-// from `color` so the in-memory buffer is consistent with the canonical value.
-function normalizeKeyColor(k: PersistedKeyColor, model: InputColorModel): KeyColor {
-  const color = k.color ?? channelsToColor(k.channels ?? {}, model)
-  // `customName` if present; otherwise migrate a legacy `name` as a custom name
-  // (preserve what the user had); else auto (null).
+const DEFAULT_SETTINGS: Settings = {
+  inputColorModel: 'hsl',
+  blendingColorModel: 'oklch',
+  toneAxisDirection: 'light-dark',
+}
+
+function defaultSteps(): Array<number | null> {
+  return new Array<number | null>(DEFAULT_SHADE_COUNT).fill(null)
+}
+
+// Build a fresh palette color (key color + its default gradient) from a color.
+function makePaletteColor(
+  color: Color,
+  model: InputColorModel,
+  direction: ToneAxisDirection,
+): PaletteColor {
+  const { stops, keyStopId } = buildDefaultStops(color, direction)
+  return {
+    id: newId(),
+    customName: null,
+    stops,
+    keyStopId,
+    channels: colorToChannels(color, model),
+  }
+}
+
+// Build a runtime palette color from a persisted one. The gradient `stops` +
+// `keyStopId` are the source of truth; `channels` are re-derived from the key
+// stop's color. Older files are migrated: pre-gradient files carry a single
+// `color` (or even-older `channels`) -> build a default gradient; pre-`customName`
+// files carry a plain `name`.
+function normalizePaletteColor(
+  k: PersistedPaletteColor,
+  model: InputColorModel,
+  direction: ToneAxisDirection,
+): PaletteColor {
   const customName = k.customName !== undefined ? k.customName : (k.name ?? null)
-  return { id: k.id, customName, color, channels: colorToChannels(color, model) }
+
+  if (k.stops !== undefined && k.stops.length > 0 && k.keyStopId !== undefined) {
+    const stops = sortStops(
+      k.stops.map((s) => ({ id: s.id, position: s.position, color: s.color })),
+    )
+    const keyStopId = stops.some((s) => s.id === k.keyStopId) ? k.keyStopId : stops[0].id
+    const keyColor = stops.find((s) => s.id === keyStopId)?.color ?? stops[0].color
+    return { id: k.id, customName, stops, keyStopId, channels: colorToChannels(keyColor, model) }
+  }
+
+  const color = k.color ?? channelsToColor(k.channels ?? {}, model)
+  const { stops, keyStopId } = buildDefaultStops(color, direction)
+  return { id: k.id, customName, stops, keyStopId, channels: colorToChannels(color, model) }
 }
 
 interface PaletteActions {
@@ -49,13 +105,20 @@ interface PaletteActions {
   setKeyColorFromHex: (id: string, hex: string) => void
   setInputColorModel: (model: InputColorModel) => void
   setBlendingColorModel: (model: BlendingColorModel) => void
+  // Flip which end of the scale is light; mirrors every gradient's stops.
+  setToneAxisDirection: (direction: ToneAxisDirection) => void
+  // Resize the shade scale (clamped to [MIN, MAX]); grows/trims from the end.
+  setShadeCount: (count: number) => void
+  // Pin a step's value (clamped between set neighbors), or null = auto.
+  setShadeStep: (index: number, value: number | null) => void
 }
 
 type PaletteStore = PaletteDocument & PaletteActions
 
 const initialDocument: PaletteDocument = {
   keyColors: [],
-  settings: { inputColorModel: 'hsl', blendingColorModel: 'oklch' },
+  settings: DEFAULT_SETTINGS,
+  shades: { steps: defaultSteps() },
 }
 
 export const usePaletteStore = create<PaletteStore>()(
@@ -63,27 +126,30 @@ export const usePaletteStore = create<PaletteStore>()(
     (set) => ({
       ...initialDocument,
 
-      hydrate: (document) =>
+      hydrate: (document) => {
+        // Tolerate older files missing newer settings (e.g. toneAxisDirection).
+        const settings = { ...DEFAULT_SETTINGS, ...document.settings }
         set({
           keyColors: document.keyColors.map((k) =>
-            normalizeKeyColor(k, document.settings.inputColorModel),
+            normalizePaletteColor(k, settings.inputColorModel, settings.toneAxisDirection),
           ),
-          settings: document.settings,
-        }),
+          settings,
+          shades: document.shades ?? { steps: defaultSteps() },
+        })
+      },
 
       addKeyColor: () =>
         set((state) => {
           // Pick a color that fits the existing row (random for an empty one).
-          const color = harmoniousColor(state.keyColors.map((k) => k.color))
+          const color = harmoniousColor(state.keyColors.map((k) => keyColorOf(k)))
           return {
             keyColors: [
               ...state.keyColors,
-              {
-                id: newId(),
-                customName: null,
+              makePaletteColor(
                 color,
-                channels: colorToChannels(color, state.settings.inputColorModel),
-              },
+                state.settings.inputColorModel,
+                state.settings.toneAxisDirection,
+              ),
             ],
           }
         }),
@@ -94,31 +160,31 @@ export const usePaletteStore = create<PaletteStore>()(
         set((state) => ({
           keyColors: [
             ...state.keyColors,
-            ...hexes.map((hex) => {
-              const color = hexToColor(hex)
-              return {
-                id: newId(),
-                customName: null,
-                color,
-                channels: colorToChannels(color, state.settings.inputColorModel),
-              }
-            }),
+            ...hexes.map((hex) =>
+              makePaletteColor(
+                hexToColor(hex),
+                state.settings.inputColorModel,
+                state.settings.toneAxisDirection,
+              ),
+            ),
           ],
         })),
 
       // Reroll: a fresh color harmonious with the *other* key colors (self
-      // excluded so it can move into a gap). Reverts to auto-naming so the name
-      // follows the new color.
+      // excluded so it can move into a gap). Rebuilds the default gradient and
+      // reverts to auto-naming so the name follows the new color.
       rerollKeyColor: (id) =>
         set((state) => {
-          const others = state.keyColors.filter((k) => k.id !== id).map((k) => k.color)
+          const others = state.keyColors.filter((k) => k.id !== id).map((k) => keyColorOf(k))
           const color = harmoniousColor(others)
+          const { stops, keyStopId } = buildDefaultStops(color, state.settings.toneAxisDirection)
           return {
             keyColors: state.keyColors.map((k) =>
               k.id === id
                 ? {
                     ...k,
-                    color,
+                    stops,
+                    keyStopId,
                     customName: null,
                     channels: colorToChannels(color, state.settings.inputColorModel),
                   }
@@ -143,18 +209,20 @@ export const usePaletteStore = create<PaletteStore>()(
           keyColors: state.keyColors.map((k) => (k.id === id ? { ...k, customName: name } : k)),
         })),
 
-      // A channel edit updates the typed buffer and recomputes the canonical
-      // color from the full channel set. We keep the user's raw strings (don't
-      // re-derive channels from color here) so mid-edit input stays untouched.
+      // A channel edit updates the typed buffer and recomputes the key stop's
+      // color (+ its lightness-driven position) from the full channel set. We
+      // keep the user's raw strings (don't re-derive channels here) so mid-edit
+      // input stays untouched.
       setKeyColorChannel: (id, channelId, value) =>
         set((state) => ({
           keyColors: state.keyColors.map((k) => {
             if (k.id !== id) return k
             const channels = { ...k.channels, [channelId]: value }
+            const color = channelsToColor(channels, state.settings.inputColorModel)
             return {
               ...k,
               channels,
-              color: channelsToColor(channels, state.settings.inputColorModel),
+              stops: setKeyColor(k, color, state.settings.toneAxisDirection),
             }
           }),
         })),
@@ -167,30 +235,35 @@ export const usePaletteStore = create<PaletteStore>()(
           keyColors: state.keyColors.map((k) => {
             if (k.id !== id) return k
             const channels = { ...k.channels, ...patch }
+            const color = channelsToColor(channels, state.settings.inputColorModel)
             return {
               ...k,
               channels,
-              color: channelsToColor(channels, state.settings.inputColorModel),
+              stops: setKeyColor(k, color, state.settings.toneAxisDirection),
             }
           }),
         })),
 
-      // A hex edit sets the canonical color, then re-derives the channel buffer.
+      // A hex edit sets the key stop's color, then re-derives the channel buffer.
       setKeyColorFromHex: (id, hex) =>
         set((state) => {
           const color = hexToColor(hex)
           return {
             keyColors: state.keyColors.map((k) =>
               k.id === id
-                ? { ...k, color, channels: colorToChannels(color, state.settings.inputColorModel) }
+                ? {
+                    ...k,
+                    stops: setKeyColor(k, color, state.settings.toneAxisDirection),
+                    channels: colorToChannels(color, state.settings.inputColorModel),
+                  }
                 : k,
             ),
           }
         }),
 
-      // Switching the input model leaves the canonical color untouched and only
-      // re-derives each channel buffer into the new model — so a switch is fully
-      // reversible (no lossy channel->channel round-trip).
+      // Switching the input model leaves the canonical colors untouched and only
+      // re-derives each key stop's channel buffer into the new model — so a
+      // switch is fully reversible (no lossy channel->channel round-trip).
       setInputColorModel: (model) =>
         set((state) => {
           if (state.settings.inputColorModel === model) return {}
@@ -198,13 +271,44 @@ export const usePaletteStore = create<PaletteStore>()(
             settings: { ...state.settings, inputColorModel: model },
             keyColors: state.keyColors.map((k) => ({
               ...k,
-              channels: colorToChannels(k.color, model),
+              channels: colorToChannels(keyColorOf(k), model),
             })),
           }
         }),
 
       setBlendingColorModel: (model) =>
         set((state) => ({ settings: { ...state.settings, blendingColorModel: model } })),
+
+      // Flipping the tone direction mirrors every gradient (position -> 1 - pos),
+      // so the scale reverses while the colors and the key stop stay the same.
+      setToneAxisDirection: (direction) =>
+        set((state) => {
+          if (state.settings.toneAxisDirection === direction) return {}
+          return {
+            settings: { ...state.settings, toneAxisDirection: direction },
+            keyColors: state.keyColors.map((k) => ({ ...k, stops: mirrorStops(k.stops) })),
+          }
+        }),
+
+      setShadeCount: (count) =>
+        set((state) => {
+          const n = Math.min(MAX_SHADE_COUNT, Math.max(MIN_SHADE_COUNT, Math.round(count)))
+          const cur = state.shades.steps
+          if (n === cur.length) return {}
+          const steps =
+            n < cur.length
+              ? cur.slice(0, n)
+              : [...cur, ...new Array<number | null>(n - cur.length).fill(null)]
+          return { shades: { steps } }
+        }),
+
+      setShadeStep: (index, value) =>
+        set((state) => {
+          const steps = state.shades.steps.slice()
+          if (index < 0 || index >= steps.length) return {}
+          steps[index] = value === null ? null : clampStepValue(steps, index, value)
+          return { shades: { steps } }
+        }),
     }),
     {
       limit: 100,
@@ -212,6 +316,7 @@ export const usePaletteStore = create<PaletteStore>()(
       partialize: (state): PaletteDocument => ({
         keyColors: state.keyColors,
         settings: state.settings,
+        shades: state.shades,
       }),
       // Skip pushing identical snapshots onto the history stack.
       equality: (a, b) => JSON.stringify(a) === JSON.stringify(b),

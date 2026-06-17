@@ -11,8 +11,8 @@ const HISTORY_LIMIT = 100
 let snapshot: PaletteDocument | null = null
 
 function currentDocument(): PaletteDocument {
-  const { keyColors, settings } = usePaletteStore.getState()
-  return { keyColors, settings }
+  const { keyColors, settings, shades } = usePaletteStore.getState()
+  return { keyColors, settings, shades }
 }
 
 /**

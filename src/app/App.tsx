@@ -2,6 +2,7 @@ import { emit, on } from '@create-figma-plugin/utilities'
 import { useEffect } from 'preact/hooks'
 import { Header } from '@/components/Header/Header'
 import { KeyColorsSection } from '@/components/KeyColors/KeyColorsSection'
+import { ShadesSection } from '@/components/Shades/ShadesSection'
 import { usePaletteStore } from '@/store'
 import { useSelectionStore } from '@/store/selection'
 import type {
@@ -37,14 +38,16 @@ export function App({ initialDocument }: AppProps) {
       if (timeoutId !== undefined) clearTimeout(timeoutId)
       timeoutId = setTimeout(() => {
         emit<SaveDocumentHandler>('SAVE_DOCUMENT', {
-          // Persist the canonical color + custom name; channels and auto names
-          // are re-derived on load.
-          keyColors: state.keyColors.map(({ id, customName, color }) => ({
+          // Persist the gradient (stops + keyStopId) + custom name; channels and
+          // auto names are re-derived on load.
+          keyColors: state.keyColors.map(({ id, customName, keyStopId, stops }) => ({
             id,
             customName,
-            color,
+            keyStopId,
+            stops: stops.map(({ id, position, color }) => ({ id, position, color })),
           })),
           settings: state.settings,
+          shades: state.shades,
         })
       }, SAVE_DEBOUNCE_MS)
     })
@@ -96,6 +99,7 @@ export function App({ initialDocument }: AppProps) {
       <Header />
       <div class={styles.body}>
         <KeyColorsSection />
+        <ShadesSection />
       </div>
     </div>
   )

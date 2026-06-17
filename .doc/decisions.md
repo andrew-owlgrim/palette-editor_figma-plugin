@@ -95,7 +95,9 @@ value) — see `ChannelInput`.
 
 ## ADR-013 — Canonical float-rgb color as the source of truth
 
-Supersedes ADR-005; persistence later amended by ADR-015 (`name` → `customName`).
+Supersedes ADR-005; persistence later amended by ADR-015 (`name` → `customName`)
+and ADR-020 (a key color is now the key *stop* of a gradient; the canonical color
+lives on each `GradientStop` instead of a single `KeyColor.color`).
 
 - **Context:** channels-as-truth round-trips lossily on every model switch and
   can't hold wide-gamut LCH; we also need a stable canonical color for future
@@ -197,3 +199,50 @@ Amends the persistence note in ADR-013.
   `overflow` scroller. Tradeoff: the tiny activation distance means in-card pointer
   gestures need an explicit escape hatch (the name field has one). Whole-card vs.
   a swatch/handle trigger is parked for revisiting (see backlog).
+
+## ADR-020 — A key color is the key *stop* of a gradient (`PaletteColor`)
+
+Amends ADR-013 (canonical color now lives per gradient stop, not on a single
+`KeyColor.color`). Renames the entity `KeyColor` → `PaletteColor`.
+
+- **Context:** shades are generated from a gradient, and a future editor must let
+  the user move/add/recolor that gradient's key points. Storing the key color and
+  its gradient as two separate things (and keeping them in sync) is fragile; the
+  key color is conceptually *one point of* the gradient.
+- **Decision:** one entity `PaletteColor { id, customName, stops: GradientStop[],
+  keyStopId, channels }`. The gradient `stops` (each `{ id, position 0..1, color }`,
+  canonical unclamped rgb per ADR-013) are persisted as the source of truth; the
+  "key color" is the stop pointed to by `keyStopId` (`keyColorOf(pc)`). A single
+  `keyStopId` (vs. an `isKey` flag per stop) structurally enforces "exactly one
+  key stop". `channels` stays a runtime-only editing buffer for the key stop.
+  Adding a key color builds a default gradient (black & white endpoints + key at
+  its OKLch lightness; see ADR-021). **Persisted now** (not derived) so the next
+  task — the gradient editor — only adds edit actions, not a storage change.
+- **Position as a rewritable default:** until the editor exists, every key-color
+  edit recomputes the key stop's `position` from the new color's lightness (like
+  `customName`/shade steps: an auto value the user can later override). The editor
+  will stop auto-recomputing once positions become user-owned.
+- **Consequence:** clean forward path to the editor; one named ramp = one gradient.
+  Migration builds a default gradient for pre-gradient files. Tradeoff: persisted
+  payload grows (stops + colors) and the key-color edit path now addresses a stop
+  inside `stops` rather than a flat `color` field.
+
+## ADR-021 — Shade generation: 1/1000 scale sampled from the gradient
+
+- **Context:** each key color needs a tonal scale (shades). The values should read
+  like tailwind (0…1000), default evenly, but allow custom per-step values; and
+  the ramp must blend in the user's chosen **blending color model** (the first use
+  of that setting, stored-only until now).
+- **Decision:** a document-level `shades.steps: (number | null)[]` (`null` = auto),
+  count = length (stepper, `[2, 26]`, default 11). `resolveSteps` fills autos by
+  even distribution **by index** between set anchors, with the 0/1000 edges as
+  implicit anchors; a user value is clamped between its set neighbors (monotonic).
+  Each shade = `sampleGradient(pc.stops, step/1000, blending)` — culori
+  `interpolate` over the stops' `[color, position]` tuples in the blending mode.
+  A new **Tone axis direction** setting (`light-dark` default | `dark-light`)
+  decides which scale end is light; flipping it mirrors every gradient
+  (`position → 1 - position`). Grid cells are display-only for now.
+- **Consequence:** blending model finally drives output; scale is tailwind-like and
+  fully customizable with auto placeholders. The 0…1000 *scale steps* are distinct
+  from a gradient's *key stops* — kept separate in code (`shades.steps` vs.
+  `GradientStop`).

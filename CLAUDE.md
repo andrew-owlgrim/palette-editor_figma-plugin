@@ -32,6 +32,8 @@ superseded/removed entry to a one-line tombstone instead of deleting it.
 - `src/color/models.ts` — input-color-model registry + culori conversions
 - `src/color/naming.ts` (+ `colorNames.data.ts`) — auto color naming (vendored ntc, nearest sRGB)
 - `src/color/harmony.ts` — generate a new color harmonious with a set (max-min in OKLab)
+- `src/color/gradient.ts` — per-PaletteColor shade gradient (key stop, default stops, sampler)
+- `src/color/shades.ts` — 0..1000 shade scale (resolve auto steps, clamp, constants)
 - `src/store/index.ts` — zustand + zundo store (the palette document)
 - `src/store/selection.ts` — ephemeral canvas-selection fills (out of undo/persist)
 - `src/utils/storage.ts` — `clientStorage` / `sharedPluginData` wrappers

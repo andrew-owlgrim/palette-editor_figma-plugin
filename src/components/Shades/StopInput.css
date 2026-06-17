@@ -1,0 +1,27 @@
+/* Ghost numeric field: borderless at rest, border on hover/focus. */
+.input {
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 3px 2px;
+  font-family: inherit;
+  font-size: 10px;
+  text-align: center;
+  color: var(--figma-color-text);
+  background-color: transparent;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  outline: none;
+}
+
+.input::placeholder {
+  color: var(--figma-color-text-tertiary);
+}
+
+.input:hover {
+  border-color: var(--figma-color-border);
+}
+
+.input:focus {
+  border-color: var(--figma-color-border-selected);
+}

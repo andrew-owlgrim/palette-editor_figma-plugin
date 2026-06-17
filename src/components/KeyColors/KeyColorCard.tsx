@@ -10,14 +10,15 @@ import { NameInput } from '@/components/NameInput/NameInput'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { Popover } from '@/components/Popover/Popover'
 import { colorToHex } from '@/color/models'
+import { keyColorOf } from '@/color/gradient'
 import { resolveName } from '@/color/naming'
 import { usePaletteStore } from '@/store'
 import { useSelectionStore } from '@/store/selection'
-import type { KeyColor } from '@/types'
+import type { PaletteColor } from '@/types'
 import styles from './KeyColorCard.css'
 
 interface KeyColorCardProps {
-  keyColor: KeyColor
+  keyColor: PaletteColor
 }
 
 export function KeyColorCard({ keyColor }: KeyColorCardProps) {
@@ -48,7 +49,7 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
   // cast to Preact's so it fits a Preact element.
   const sortableAttributes = attributes as JSX.HTMLAttributes<HTMLDivElement>
 
-  const hex = colorToHex(keyColor.color)
+  const hex = colorToHex(keyColorOf(keyColor))
 
   return (
     <div ref={setNodeRef} class={styles.card} style={style} {...sortableAttributes} {...listeners}>

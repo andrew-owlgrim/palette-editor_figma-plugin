@@ -1,7 +1,8 @@
 import type { Color } from 'culori'
 import { colorToHex } from '@/color/models'
 import { COLOR_NAMES } from '@/color/colorNames.data'
-import type { KeyColor } from '@/types'
+import { keyColorOf } from '@/color/gradient'
+import type { PaletteColor } from '@/types'
 
 interface PaletteEntry {
   name: string
@@ -39,7 +40,7 @@ export function autoName(color: Color): string {
 }
 
 // Effective display/export name: a user-set custom name, or the auto name
-// derived from the color when none is set.
-export function resolveName(keyColor: KeyColor): string {
-  return keyColor.customName ?? autoName(keyColor.color)
+// derived from the key stop's color when none is set.
+export function resolveName(paletteColor: PaletteColor): string {
+  return paletteColor.customName ?? autoName(keyColorOf(paletteColor))
 }

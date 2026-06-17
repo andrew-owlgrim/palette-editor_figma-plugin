@@ -43,11 +43,20 @@ spaces and keeping the result available to everyone editing the same file.
   an **add-matching** button (next to "+") appends every selected fill as new key
   colors. (Figma's native eyedropper isn't available to plugins, so this works off
   the selection instead.)
+- **Shades** — a tonal scale generated for every key color. Each key color is a
+  gradient (black & white ends with the key color placed by its lightness); shades
+  are sampled along it in the **blending color model**. A row of step inputs uses
+  the tailwind 1/1000 scale (0…1000): a count stepper (2–26, default 11), values
+  evenly distributed by default, each editable — unset steps show their auto value
+  as a placeholder, and a custom value re-distributes the unset steps around it.
+  The grid shows one row of swatches per key color (display-only for now).
 - **Settings popover** (gear icon, top-right):
   - **Input color model** — `HSL` / `HSV` / `LCH`. Switching it recomputes every
     key color's channel values into the new model.
-  - **Blending color model** — `RGB` / `HSL` / `OKLCH` (stored now; used by future
-    blending/interpolation features).
+  - **Blending color model** — `RGB` / `HSL` / `OKLCH`. The model the shade
+    gradient is interpolated in.
+  - **Tone axis direction** — `Dark → Light` / `Light → Dark`. Which end of the
+    shade scale (step 0) is light; flipping it mirrors every gradient.
 - **Undo / redo** (top-left) — covers the whole palette document, including color
   edits and color-model switches.
 - **Per-file persistence** — changes are saved to the file automatically.
@@ -63,9 +72,8 @@ spaces and keeping the result available to everyone editing the same file.
 
 ## Planned / not yet built
 
-- Gradient editor.
-- Palette generation from key colors (scales/harmonies) — the "first block"
-  framing implies more blocks to come.
-- Blending using the configured blending color model.
+- Gradient editor — let the user move/add/recolor a key color's gradient stops
+  (the shade gradient is auto-derived for now).
+- Export: turn the shade grid into Figma variables / styles / CSS.
 
 See [tasks.md](tasks.md) for status and [architecture.md](architecture.md) for how it's built.

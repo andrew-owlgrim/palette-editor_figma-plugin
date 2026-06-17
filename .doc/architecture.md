@@ -40,34 +40,59 @@ main.ts  ──showUI(opts,{initialDocument})──▶  App (props)
 ```ts
 type InputColorModel = 'hsl' | 'hsv' | 'lch'
 type BlendingColorModel = 'rgb' | 'hsl' | 'oklch'
+type ToneAxisDirection = 'light-dark' | 'dark-light'   // which scale end is light
 
-// Raw input-field strings keyed by channel id, in the CURRENT input model.
-// e.g. hsl -> { h: '210', s: '50', l: '50' }
-type ColorChannels = Record<string, string>
+type ColorChannels = Record<string, string>            // raw input strings by channel id
 
-// `color` (culori Color, float rgb) is the source of truth; `channels` is a
-// derived buffer in the current input model. `customName` null = auto-named.
-interface KeyColor { id: string; customName: string | null; color: Color; channels: ColorChannels }
-interface Settings { inputColorModel: InputColorModel; blendingColorModel: BlendingColorModel }
-interface PaletteDocument { keyColors: KeyColor[]; settings: Settings }   // runtime
+// A gradient key point: canonical unclamped rgb color at a 0..1 axis position.
+interface GradientStop { id: string; position: number; color: Color }
 
-// Persisted shape: `color` + `customName`; `channels`/auto names re-derived on
-// load. Loose to tolerate older files (pre-`color` carry `channels`; pre-
-// `customName` carry a plain `name`) — both migrated on load.
-interface PersistedKeyColor {
-  id: string; customName?: string | null; name?: string; color?: Color; channels?: ColorChannels
+// A named color "ramp": a shade gradient whose `keyStopId` stop is the seed the
+// user picks/names ("the key color"). `channels` is a derived edit buffer for
+// that key stop. `customName` null = auto-named. (ADR-020)
+interface PaletteColor {
+  id: string; customName: string | null
+  stops: GradientStop[]; keyStopId: string; channels: ColorChannels
 }
-interface PersistedDocument { keyColors: PersistedKeyColor[]; settings: Settings }
+interface Settings {
+  inputColorModel: InputColorModel
+  blendingColorModel: BlendingColorModel
+  toneAxisDirection: ToneAxisDirection
+}
+// Shade scale: per-step target on the 0..1000 axis, null = auto. (ADR-021)
+interface ShadeScale { steps: Array<number | null> }
+interface PaletteDocument { keyColors: PaletteColor[]; settings: Settings; shades: ShadeScale }
+
+// Persisted shape: gradient `stops` + `keyStopId` + `customName` + `shades`;
+// `channels`/auto names re-derived on load. Loose to tolerate older files (pre-
+// gradient carry a single `color`/`channels`; pre-`customName` carry `name`) —
+// all migrated to a default gradient on load.
+interface PersistedPaletteColor {
+  id: string; customName?: string | null; name?: string
+  keyStopId?: string; stops?: { id: string; position: number; color: Color }[]
+  color?: Color; channels?: ColorChannels   // legacy single-color form
+}
+interface PersistedDocument {
+  keyColors: PersistedPaletteColor[]; settings: Settings; shades?: ShadeScale
+}
 ```
 
-**Source of truth for a color** is `KeyColor.color` — a canonical culori color in
-float `rgb` mode, left **unclamped** so wide-gamut colors persist as extended
-sRGB (ADR-013). The hex shown in the UI and the `channels` are both derived from
+**Source of truth for a color** is each `GradientStop.color` — a canonical culori
+color in float `rgb` mode, left **unclamped** so wide-gamut colors persist as
+extended sRGB (ADR-013). The "key color" of a `PaletteColor` is its key stop's
+color (`keyColorOf(pc)`); the hex in the UI and the `channels` buffer derive from
 it. `channels` are strings (not numbers) on purpose: they keep exactly what the
 user typed and tolerate mid-edit states.
 
 **Name** is `customName` (user-pinned) or, when `null`, an auto name derived from
-the color — effective name = `resolveName(keyColor)` (see Auto color naming).
+the key stop's color — effective name = `resolveName(pc)` (see Auto color naming).
+
+**Shade gradient (ADR-020/021):** a `PaletteColor` *is* its gradient — the key
+color is one stop. By default the gradient is black & white endpoints with the
+key color placed between them at its OKLch lightness; `toneAxisDirection` sets
+which endpoint is at position 0. The key stop's `position` is a rewritable default
+that follows the color's lightness on every edit (until a future gradient editor
+detaches it).
 
 Update rules: a **channel edit** keeps the typed strings and recomputes `color`;
 a **hex edit** sets `color` then re-derives `channels`; an **input-model switch**
@@ -113,6 +138,19 @@ export-ready by default.
   non-empty → pins it. Escape cancels. While not focused it shows `value`, so the
   auto name updates live.
 
+## Shade gradient + scale — `src/color/gradient.ts` + `src/color/shades.ts`
+
+`gradient.ts` owns the per-`PaletteColor` gradient (ADR-020): `keyStopOf` /
+`keyColorOf` accessors, `buildDefaultStops(color, direction)` (black/white ends +
+key at its `oklchLightness`), `setKeyColor` (reposition the key stop on edit),
+`mirrorStops` (on a tone-direction flip), and `buildGradientSampler(stops,
+blending)` — a `u→Color` sampler via culori `interpolate` over the stops'
+`[color, position]` tuples in the blending mode (build once per row, sample per
+step). `shades.ts` owns the 0..1000 scale (ADR-021): `resolveSteps` (fill `null`
+autos by even index-distribution between set anchors / the 0&1000 edges),
+`clampStepValue` (keep a typed value between its set neighbors), and the
+count/`SHADE_MAX` constants.
+
 ## Harmonious color generation — `src/color/harmony.ts` (ADR-018)
 
 `harmoniousColor(existing)` returns a color that fits an arbitrary existing set:
@@ -130,20 +168,23 @@ rerolled color and reverts it to auto-name).
 `zustand` store wrapped in `zundo`'s `temporal`. State = `PaletteDocument`
 + actions:
 
-- `hydrate(document)` — normalize a `PersistedDocument` into runtime key colors
-  (re-derive `channels` from `color`; migrate older files lacking `color`).
+- `hydrate(document)` — normalize a `PersistedDocument` into runtime palette
+  colors (re-derive `channels` from the key stop; migrate pre-gradient files to a
+  default gradient; default missing settings/shades).
 - `addKeyColor` (harmonious, at end — see ADR-018), `addKeyColors(hexes)` (bulk
   add in one update = one undo step; used by "add matching"),
-  `rerollKeyColor(id)` (replace one with a fresh harmonious color, auto-named),
+  `rerollKeyColor(id)` (rebuild a fresh harmonious default gradient, auto-named),
   `removeKeyColor`, `moveKeyColor(fromId, toId)` (reorder via `arrayMove`, used
   by drag-and-drop — one update = one undo step),
   `setKeyColorName(id, name | null)` (pin a custom name, or null = auto),
-  `setKeyColorChannel` / `setKeyColorChannels` (update buffer + recompute `color`),
-  `setKeyColorFromHex` (set `color` + re-derive channels).
-- `setInputColorModel` (re-derives channels from `color`, `color` untouched),
-  `setBlendingColorModel`.
+  `setKeyColorChannel` / `setKeyColorChannels` / `setKeyColorFromHex` (all set the
+  key stop's color + reposition it by lightness; channels/hex re-derived).
+- `setInputColorModel` (re-derives channels from the key color), `setBlendingColorModel`,
+  `setToneAxisDirection` (mirrors every gradient's stops).
+- `setShadeCount(n)` (resize `shades.steps`, clamp `[2,26]`, grow/trim at the end),
+  `setShadeStep(i, value | null)` (pin, clamped between set neighbors; null = auto).
 
-zundo options: `partialize` to `{ keyColors, settings }` (don't track action
+zundo options: `partialize` to `{ keyColors, settings, shades }` (don't track action
 functions), `equality` via `JSON.stringify` (skip identical history entries),
 `limit: 100`. **Undo/redo covers the whole document, incl. both model switches.**
 
@@ -208,8 +249,8 @@ Lets the user pull colors off the canvas into the palette.
 App (app/App.tsx)
 ├── Header                 undo/redo (left) · settings gear (right)
 │   └── Popover            custom anchored popover (outside-click + Esc)
-│       └── SettingsPopover  two SegmentedControls (input / blending model)
-└── KeyColorsSection       header: "+" add · add-matching (from selection) · card list
+│       └── SettingsPopover  three SegmentedControls (input model / blending model / tone axis direction)
+├── KeyColorsSection       header: "+" add · add-matching (from selection) · card list
     │                       (auto-scrolls to reveal new card(s) on add)
     │                       wraps the list in DndContext + SortableContext
     │                       (horizontal) for drag-reorder; DragOverlay → KeyColorCardPreview
@@ -225,6 +266,11 @@ App (app/App.tsx)
                 ├── Handle     white dot, optional color sample (draggable)
                 ├── GhostInput hex field — '#' as the icon-slot label, value without '#'
                 └── ChannelInput  TextboxNumeric w/ label in the DS `icon` slot
+└── ShadesSection          header: "Shades" + CountStepper (− [n] +); step row + swatch grid
+    │                       both share one grid-template (aligned columns), scroll together
+    ├── CountStepper        −/+ IconButtons around a directly-editable count field [2,26]
+    ├── StopInput           ghost numeric field per step; auto value as placeholder (null = auto)
+    └── (swatch grid)       display-only cells = sampleGradient(pc.stops, step/1000, blending)
 ```
 
 - Picker geometry + channel↔axis mapping: `src/color/picker.ts`. Drag binding:

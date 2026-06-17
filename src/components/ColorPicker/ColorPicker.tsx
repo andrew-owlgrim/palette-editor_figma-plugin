@@ -12,6 +12,7 @@ import {
   wheelToChannels,
 } from '@/color/picker'
 import { colorToHex, MODELS } from '@/color/models'
+import { keyColorOf } from '@/color/gradient'
 import { usePaletteStore } from '@/store'
 import { beginLiveEdit, endLiveEdit } from '@/store/history'
 import styles from './ColorPicker.css'
@@ -33,7 +34,7 @@ export function ColorPicker({ keyColorId }: ColorPickerProps) {
   if (keyColor === undefined) return null
 
   const { channels } = keyColor
-  const hex = colorToHex(keyColor.color)
+  const hex = colorToHex(keyColorOf(keyColor))
   const { hue, radius01 } = channelsToWheel(channels, model)
   const axis = channelsToAxis(channels, model)
   const gradient = buildAxisGradient(channels, model)
@@ -48,7 +49,7 @@ export function ColorPicker({ keyColorId }: ColorPickerProps) {
         id: k.id,
         hue: wheel.hue,
         radius01: wheel.radius01,
-        color: colorToHex(k.color),
+        color: colorToHex(keyColorOf(k)),
       }
     })
 
