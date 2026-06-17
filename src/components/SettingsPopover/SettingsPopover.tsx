@@ -14,6 +14,7 @@ const BLENDING_MODEL_OPTIONS: Array<SegmentedControlOption> = [
   { value: 'rgb', children: 'RGB' },
   { value: 'hsl', children: 'HSL' },
   { value: 'oklch', children: 'OKLCH' },
+  { value: 'lch', children: 'LCH' },
 ]
 
 const TONE_AXIS_OPTIONS: Array<SegmentedControlOption> = [

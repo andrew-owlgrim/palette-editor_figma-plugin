@@ -4,6 +4,13 @@ Volatile working state. Last updated: 2026-06-17.
 
 ## Done
 
+- **Gradient editor** (ADR-022): clickable Shades rows inject a full-width
+  `GradientEditor` under the active row — track with a draggable `Handle` per
+  stop (press empty = add, press near an endpoint = no-op), full-width `StopCard`
+  per stop (shared `ColorPicker` now targets `(paletteColorId, stopId)`, hover
+  delete via `canDeleteStop`, position-% label, **"A"** auto toggle).
+  `GradientStop` gains `autoPosition` (persisted) + a per-stop `channels` buffer
+  (replaces `PaletteColor.channels`); color-edit store path is stop-addressed.
 - **Shades + gradient model** (ADR-020/021): unified `KeyColor` → `PaletteColor`
   (a gradient whose key stop is the seed); `color/gradient.ts` (default stops,
   sampler, mirror) + `color/shades.ts` (0..1000 scale, `resolveSteps`). New
@@ -61,8 +68,9 @@ Volatile working state. Last updated: 2026-06-17.
 
 ## Next up
 
-- **Gradient editor** — edit a key color's gradient key stops (move / add /
-  recolor). Detaches the key-stop position from the auto lightness default.
+- **Fix Hue on gradients** — Currently, dark color creates with 171 hue. Values interpolates to this value in shades causing hue shift. Probably there is micro fluctuation causing extremely low satureation value that don't display in UI when values rounded, but it still affects the interpolation.
+- **Dark Endpoint Lightness** should also affect automatic position calculations on gradient.
+- **Position percents** should turn into numeric textbox input when the value is not automatic.
 - **Export** — shade grid → Figma variables / styles / Copy CSS.
 
 ## Backlog / ideas

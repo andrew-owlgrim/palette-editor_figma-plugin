@@ -3,8 +3,10 @@ import type { Color } from 'culori'
 
 // Color model used for editing key-color channel inputs
 export type InputColorModel = 'hsl' | 'hsv' | 'lch'
-// Color model the shade gradient is blended/interpolated in
-export type BlendingColorModel = 'rgb' | 'hsl' | 'oklch'
+// Color model the shade gradient is blended/interpolated in. Also defines the
+// lightness metric used to auto-position stops on the tone axis (ADR-022):
+// rgb/hsl → HSL L, oklch → OKLab L, lch → CIE L*.
+export type BlendingColorModel = 'rgb' | 'hsl' | 'oklch' | 'lch'
 // Which end of the shade scale (step 0) is light vs dark. 'light-dark' = step 0
 // is light, the scale darkens as the step value grows (the tailwind convention).
 export type ToneAxisDirection = 'light-dark' | 'dark-light'
@@ -21,24 +23,30 @@ export interface GradientStop {
   // Canonical culori color in float `rgb` mode, left UNCLAMPED so wide-gamut
   // colors survive as extended sRGB (ADR-013).
   color: Color
+  // `true` (default) = `position` is auto-derived from the color's OKLch
+  // lightness (`keyStopPosition`) and follows the color on every edit; `false` =
+  // pinned by the user (drag). Toggled per stop in the gradient editor (ADR-022).
+  autoPosition: boolean
+  // Derived editing buffer for THIS stop: raw input strings in the CURRENT
+  // inputColorModel. Runtime-only (not persisted) — re-derived on load / model
+  // switch. Lets the color picker edit any stop, not just the key one.
+  channels: ColorChannels
 }
 
 // A named color "ramp": a shade gradient whose `keyStopId` stop is the seed the
 // user picks/names ("the key color"). Shades are sampled from `stops`. By default
 // the gradient is black & white endpoints with the key color between them at its
-// lightness; a future editor will let the user move/add/recolor stops.
+// lightness; the gradient editor (ADR-022) lets the user move/add/recolor stops.
 export interface PaletteColor {
   id: string
   // User-set name, or `null` for auto-naming from the key stop's color (nearest
   // named color via color/naming.ts). Effective name = `resolveName(pc)`.
   customName: string | null
-  // Sorted by position; endpoints at 0 and 1.
+  // Sorted by position; endpoints at 0 and 1. Each stop carries its own derived
+  // `channels` buffer (see GradientStop).
   stops: GradientStop[]
   // Which stop is the key color (the named seed). Always references a `stops` id.
   keyStopId: string
-  // Derived editing buffer for the KEY stop: raw input strings in the CURRENT
-  // inputColorModel. Runtime-only (not persisted) — re-derived on load.
-  channels: ColorChannels
 }
 
 export interface Settings {
@@ -70,6 +78,8 @@ export interface PersistedGradientStop {
   id: string
   position: number
   color: Color
+  // Omitted by pre-editor files; defaults to `true` (auto) on load.
+  autoPosition?: boolean
 }
 
 export interface PersistedPaletteColor {

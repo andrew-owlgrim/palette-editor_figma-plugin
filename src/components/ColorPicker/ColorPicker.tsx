@@ -12,39 +12,44 @@ import {
   wheelToChannels,
 } from '@/color/picker'
 import { colorToHex, MODELS } from '@/color/models'
-import { keyColorOf } from '@/color/gradient'
+import { keyColorOf, keyStopOf } from '@/color/gradient'
 import { usePaletteStore } from '@/store'
 import { beginLiveEdit, endLiveEdit } from '@/store/history'
 import styles from './ColorPicker.css'
 
 interface ColorPickerProps {
-  keyColorId: string
+  // The palette color and the specific stop being edited (the key stop, or any
+  // gradient stop from the gradient editor).
+  paletteColorId: string
+  stopId: string
 }
 
 // Closed via outside-click or a re-click on the swatch (handled by the Popover /
-// KeyColorCard) — no explicit close button.
-export function ColorPicker({ keyColorId }: ColorPickerProps) {
+// host card) — no explicit close button.
+export function ColorPicker({ paletteColorId, stopId }: ColorPickerProps) {
   const model = usePaletteStore((s) => s.settings.inputColorModel)
   const keyColors = usePaletteStore((s) => s.keyColors)
-  const setKeyColorChannel = usePaletteStore((s) => s.setKeyColorChannel)
-  const setKeyColorChannels = usePaletteStore((s) => s.setKeyColorChannels)
-  const setKeyColorFromHex = usePaletteStore((s) => s.setKeyColorFromHex)
+  const setStopChannel = usePaletteStore((s) => s.setStopChannel)
+  const setStopChannels = usePaletteStore((s) => s.setStopChannels)
+  const setStopFromHex = usePaletteStore((s) => s.setStopFromHex)
 
-  const keyColor = keyColors.find((k) => k.id === keyColorId)
-  if (keyColor === undefined) return null
+  const paletteColor = keyColors.find((k) => k.id === paletteColorId)
+  const stop = paletteColor?.stops.find((s) => s.id === stopId)
+  if (paletteColor === undefined || stop === undefined) return null
 
-  const { channels } = keyColor
-  const hex = colorToHex(keyColorOf(keyColor))
+  const { channels } = stop
+  const hex = colorToHex(stop.color)
   const { hue, radius01 } = channelsToWheel(channels, model)
   const axis = channelsToAxis(channels, model)
   const gradient = buildAxisGradient(channels, model)
   const conic = buildHueWheelConic(model)
   const channelDefs = MODELS[model].channels
 
+  // Other key colors shown as reference dots on the wheel.
   const dots: WheelDot[] = keyColors
-    .filter((k) => k.id !== keyColorId)
+    .filter((k) => k.id !== paletteColorId)
     .map((k) => {
-      const wheel = channelsToWheel(k.channels, model)
+      const wheel = channelsToWheel(keyStopOf(k).channels, model)
       return {
         id: k.id,
         hue: wheel.hue,
@@ -62,7 +67,7 @@ export function ColorPicker({ keyColorId }: ColorPickerProps) {
         conic={conic}
         dots={dots}
         onChange={(nextHue, nextRadius) =>
-          setKeyColorChannels(keyColorId, wheelToChannels(nextHue, nextRadius, model))
+          setStopChannels(paletteColorId, stopId, wheelToChannels(nextHue, nextRadius, model))
         }
         onDragStart={beginLiveEdit}
         onDragEnd={endLiveEdit}
@@ -74,13 +79,13 @@ export function ColorPicker({ keyColorId }: ColorPickerProps) {
         color={hex}
         onChange={(t) => {
           const { id, value } = axisToChannel(t, model)
-          setKeyColorChannel(keyColorId, id, value)
+          setStopChannel(paletteColorId, stopId, id, value)
         }}
         onDragStart={beginLiveEdit}
         onDragEnd={endLiveEdit}
       />
 
-      <GhostInput value={hex} onChange={(value) => setKeyColorFromHex(keyColorId, value)} />
+      <GhostInput value={hex} onChange={(value) => setStopFromHex(paletteColorId, stopId, value)} />
 
       <div class={styles.channels}>
         {channelDefs.map((channel) => (
@@ -88,7 +93,7 @@ export function ColorPicker({ keyColorId }: ColorPickerProps) {
             key={channel.id}
             channel={channel}
             value={channels[channel.id] ?? ''}
-            onValueInput={(value) => setKeyColorChannel(keyColorId, channel.id, value)}
+            onValueInput={(value) => setStopChannel(paletteColorId, stopId, channel.id, value)}
           />
         ))}
       </div>

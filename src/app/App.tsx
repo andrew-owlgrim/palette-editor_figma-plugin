@@ -44,7 +44,12 @@ export function App({ initialDocument }: AppProps) {
             id,
             customName,
             keyStopId,
-            stops: stops.map(({ id, position, color }) => ({ id, position, color })),
+            stops: stops.map(({ id, position, color, autoPosition }) => ({
+              id,
+              position,
+              color,
+              autoPosition,
+            })),
           })),
           settings: state.settings,
           shades: state.shades,

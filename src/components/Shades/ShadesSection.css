@@ -31,9 +31,23 @@
   gap: 4px;
 }
 
-.grid {
+/* One clickable row of swatches per key color. Vertical-only padding keeps the
+   columns aligned with the step row while giving the hover fill some bleed. */
+.row {
   display: grid;
   gap: 4px;
+  padding: 4px 0;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.row:hover {
+  background-color: var(--figma-color-bg-hover);
+}
+
+.rowActive,
+.rowActive:hover {
+  background-color: var(--figma-color-bg-secondary);
 }
 
 .swatch {

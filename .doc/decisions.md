@@ -246,3 +246,56 @@ Amends ADR-013 (canonical color now lives per gradient stop, not on a single
   fully customizable with auto placeholders. The 0…1000 *scale steps* are distinct
   from a gradient's *key stops* — kept separate in code (`shades.steps` vs.
   `GradientStop`).
+
+## ADR-022 — Inline gradient editor (move/add/recolor stops)
+
+Delivers the editor ADR-020 was built toward. Amends ADR-020: the runtime
+`channels` buffer moves from `PaletteColor` onto each `GradientStop`.
+
+- **Context:** users need to edit a `PaletteColor`'s gradient — drag stops, add new
+  ones, recolor any stop, and detach a stop's position from its color (until now
+  every stop's position auto-followed lightness). The shades grid already renders
+  one row per key color, so the editor belongs there.
+- **Where / interaction:** the **Shades** rows become individually clickable
+  (`--figma-color-bg-hover`); a click injects a full-width `GradientEditor` under
+  the active row. It paints the gradient on a track (sampled in the blending model
+  via `buildGradientCss`), with a draggable `Handle` per stop; pressing empty track
+  **adds** a stop there and drags it; pressing within `GRAB_PX` of an endpoint is a
+  no-op (endpoints are fixed). Below, one full-width `StopCard` per stop (swatch →
+  the **same `ColorPicker`**, now targeting `(paletteColorId, stopId)`; a delete
+  tile on hover; a position-% label + an **"A"** auto toggle).
+- **Auto vs. manual position:** `GradientStop.autoPosition` (default `true`,
+  persisted). Auto = position derived from the color's lightness **in the active
+  blending model** (`modelLightness` → `keyStopPosition`) and re-followed on every
+  color edit / tone-direction flip — the established key-stop behavior, now per
+  stop. Manual = pinned by a drag; the "A" toggle flips it (turning auto back on
+  re-snaps to lightness). This is the "detach" ADR-020 anticipated; `setStopColor`
+  only repositions auto stops.
+- **Position lightness metric = the blending model's lightness** (so the axis
+  matches the space shades blend in): rgb/hsl → HSL L `(max+min)/2`, oklch → OKLab
+  L, lch → CIE L\*. OKLab lifts the dark range hard (near-black → ~13% vs ~2% for
+  CIE/HSL), which read as a mismatch against the picker's L; tying position to the
+  blending model removes the surprise. **`lch` added as a 4th blending model** for
+  exactly this: it interpolates *and* positions in CIE LCH (even darks, no OKLab
+  lift) — the tradeoff is CIELAB's blue/purple→lilac hue drift on light tints, so
+  OKLCH stays the default (hue integrity matters for a palette tool) and the user
+  A/Bs per palette. Switching the blending model re-positions all auto stops
+  (`repositionAutoStops`), mirroring how a tone-direction flip mirrors them.
+- **`channels` per stop:** to let the picker edit *any* stop with the same typed-
+  string fidelity (mid-edit raw strings live in the buffer, not local draft),
+  `channels` is a runtime-only field on `GradientStop` (re-derived on load / model
+  switch via `rederiveChannels`), replacing the single `PaletteColor.channels`.
+- **Reuse decision:** the picker's single-handle `Gradient` slider is left alone;
+  the multi-stop track is a separate `GradientEditor` reusing the lower-level
+  `Handle` + `usePointerDrag` primitives (overloading `Gradient` with N handles +
+  add/select would bloat the picker path for no gain).
+- **Default dark endpoint:** generated gradients start from a near-black neutral
+  at `DARK_ENDPOINT_L` (OKLab L ≈ 0.15, ~#0b0b0b — tunable) instead of pure black,
+  to cut the perceptually-indistinguishable bottom OKLab range off the ramp. The
+  two endpoints are **pinned** (manual) at the scale ends so the dark one anchors
+  at 0/1 rather than drifting to its own lightness; only the key stop is auto.
+- **Delete guard:** `canDeleteStop` blocks the two endpoints and the key stop.
+- **Consequence:** the gradient is now fully editable; persisted payload gains
+  `autoPosition` per stop (defaults to `true` for older files). Tradeoff: the
+  color-edit store path is now stop-addressed (`setStop*(pcId, stopId, …)`) rather
+  than key-color-addressed.

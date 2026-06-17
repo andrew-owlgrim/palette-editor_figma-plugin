@@ -1,5 +1,7 @@
-import { useMemo } from 'preact/hooks'
+import { Fragment } from 'preact'
+import { useMemo, useState } from 'preact/hooks'
 import { CountStepper } from './CountStepper'
+import { GradientEditor } from './GradientEditor'
 import { StopInput } from './StopInput'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { colorToHex } from '@/color/models'
@@ -15,6 +17,10 @@ export function ShadesSection() {
   const setShadeCount = usePaletteStore((s) => s.setShadeCount)
   const setShadeStep = usePaletteStore((s) => s.setShadeStep)
 
+  // Which key color's gradient editor is open (injected under its row). A stale
+  // id (its color removed) simply renders no editor — guarded at render.
+  const [editingId, setEditingId] = useState<string | null>(null)
+
   const count = steps.length
   const resolved = useMemo(() => resolveSteps(steps), [steps])
 
@@ -28,9 +34,13 @@ export function ShadesSection() {
     [keyColors, resolved, blending],
   )
 
-  // Both the step row and the swatch grid share this column template so columns
-  // line up; the scroller scrolls them together when there are many steps.
+  // The step row and every swatch row share this column template so columns line
+  // up; the scroller scrolls them together when there are many steps.
   const columns = { gridTemplateColumns: `repeat(${count}, minmax(28px, 1fr))` }
+
+  function toggleEditing(id: string) {
+    setEditingId((current) => (current === id ? null : id))
+  }
 
   return (
     <section class={styles.section}>
@@ -53,17 +63,34 @@ export function ShadesSection() {
         </div>
 
         {keyColors.length > 0 ? (
-          <div class={styles.grid} style={columns}>
-            {rows.map((row) =>
-              row.colors.map((hex, i) => (
+          rows.map((row) => {
+            const paletteColor = keyColors.find((k) => k.id === row.id)
+            const active = editingId === row.id
+            return (
+              <Fragment key={row.id}>
                 <div
-                  key={`${row.id}:${i}`}
-                  class={styles.swatch}
-                  style={{ backgroundColor: hex }}
-                />
-              )),
-            )}
-          </div>
+                  class={active ? `${styles.row} ${styles.rowActive}` : styles.row}
+                  style={columns}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleEditing(row.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      toggleEditing(row.id)
+                    }
+                  }}
+                >
+                  {row.colors.map((hex, i) => (
+                    <div key={i} class={styles.swatch} style={{ backgroundColor: hex }} />
+                  ))}
+                </div>
+                {active && paletteColor !== undefined ? (
+                  <GradientEditor paletteColor={paletteColor} />
+                ) : null}
+              </Fragment>
+            )
+          })
         ) : (
           <div class={styles.empty}>Add a key color to generate shades</div>
         )}

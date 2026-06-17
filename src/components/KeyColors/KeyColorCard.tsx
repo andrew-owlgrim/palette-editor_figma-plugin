@@ -25,7 +25,7 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
   const removeKeyColor = usePaletteStore((s) => s.removeKeyColor)
   const rerollKeyColor = usePaletteStore((s) => s.rerollKeyColor)
   const setKeyColorName = usePaletteStore((s) => s.setKeyColorName)
-  const setKeyColorFromHex = usePaletteStore((s) => s.setKeyColorFromHex)
+  const setStopFromHex = usePaletteStore((s) => s.setStopFromHex)
   const selectionFills = useSelectionStore((s) => s.fills)
 
   const containerRef = useRef<HTMLDivElement>(null)
@@ -68,7 +68,9 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
           {selectionFills.length > 0 ? (
             <div class={styles.action}>
               <Tooltip content="Use color from selection">
-                <IconButton onClick={() => setKeyColorFromHex(keyColor.id, selectionFills[0])}>
+                <IconButton
+                  onClick={() => setStopFromHex(keyColor.id, keyColor.keyStopId, selectionFills[0])}
+                >
                   <IconEyedropperSmall24 />
                 </IconButton>
               </Tooltip>
@@ -89,7 +91,7 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
           anchorRef={anchorRef}
           placement="right-top"
         >
-          <ColorPicker keyColorId={keyColor.id} />
+          <ColorPicker paletteColorId={keyColor.id} stopId={keyColor.keyStopId} />
         </Popover>
       </div>
 

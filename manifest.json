@@ -1,8 +1,1 @@
-{
-  "api": "1.0.0",
-  "editorType": ["figma"],
-  "id": "",
-  "name": "My Colors",
-  "main": "build/main.js",
-  "ui": "build/ui.js"
-}
+{"api":"1.0.0","editorType":["figma"],"id":"","name":"My Colors","main":"build/main.js","ui":"build/ui.js"}

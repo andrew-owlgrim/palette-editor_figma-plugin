@@ -17,10 +17,17 @@ import type {
 import { channelsToColor, colorToChannels, hexToColor } from '@/color/models'
 import { harmoniousColor } from '@/color/harmony'
 import {
+  addStop as addStopToGradient,
   buildDefaultStops,
+  canDeleteStop,
   keyColorOf,
   mirrorStops,
-  setKeyColor,
+  rederiveChannels,
+  removeStop as removeStopFromGradient,
+  repositionAutoStops,
+  setStopAutoPosition as setStopAutoPositionInGradient,
+  setStopColor,
+  setStopPosition as setStopPositionInGradient,
   sortStops,
 } from '@/color/gradient'
 import {
@@ -51,15 +58,10 @@ function makePaletteColor(
   color: Color,
   model: InputColorModel,
   direction: ToneAxisDirection,
+  blending: BlendingColorModel,
 ): PaletteColor {
-  const { stops, keyStopId } = buildDefaultStops(color, direction)
-  return {
-    id: newId(),
-    customName: null,
-    stops,
-    keyStopId,
-    channels: colorToChannels(color, model),
-  }
+  const { stops, keyStopId } = buildDefaultStops(color, direction, blending, model)
+  return { id: newId(), customName: null, stops, keyStopId }
 }
 
 // Build a runtime palette color from a persisted one. The gradient `stops` +
@@ -71,21 +73,32 @@ function normalizePaletteColor(
   k: PersistedPaletteColor,
   model: InputColorModel,
   direction: ToneAxisDirection,
+  blending: BlendingColorModel,
 ): PaletteColor {
   const customName = k.customName !== undefined ? k.customName : (k.name ?? null)
 
   if (k.stops !== undefined && k.stops.length > 0 && k.keyStopId !== undefined) {
-    const stops = sortStops(
-      k.stops.map((s) => ({ id: s.id, position: s.position, color: s.color })),
+    // Derive each stop's channel buffer; default missing `autoPosition` to true
+    // (pre-editor files only carried auto-following endpoints + key stop).
+    const stops = rederiveChannels(
+      sortStops(
+        k.stops.map((s) => ({
+          id: s.id,
+          position: s.position,
+          color: s.color,
+          autoPosition: s.autoPosition ?? true,
+          channels: {},
+        })),
+      ),
+      model,
     )
     const keyStopId = stops.some((s) => s.id === k.keyStopId) ? k.keyStopId : stops[0].id
-    const keyColor = stops.find((s) => s.id === keyStopId)?.color ?? stops[0].color
-    return { id: k.id, customName, stops, keyStopId, channels: colorToChannels(keyColor, model) }
+    return { id: k.id, customName, stops, keyStopId }
   }
 
   const color = k.color ?? channelsToColor(k.channels ?? {}, model)
-  const { stops, keyStopId } = buildDefaultStops(color, direction)
-  return { id: k.id, customName, stops, keyStopId, channels: colorToChannels(color, model) }
+  const { stops, keyStopId } = buildDefaultStops(color, direction, blending, model)
+  return { id: k.id, customName, stops, keyStopId }
 }
 
 interface PaletteActions {
@@ -100,9 +113,17 @@ interface PaletteActions {
   moveKeyColor: (fromId: string, toId: string) => void
   // null = revert to auto-naming; a string = pin a custom name.
   setKeyColorName: (id: string, name: string | null) => void
-  setKeyColorChannel: (id: string, channelId: string, value: string) => void
-  setKeyColorChannels: (id: string, channels: ColorChannels) => void
-  setKeyColorFromHex: (id: string, hex: string) => void
+  // Color edits target a specific stop (the key stop or any gradient stop).
+  setStopChannel: (pcId: string, stopId: string, channelId: string, value: string) => void
+  setStopChannels: (pcId: string, stopId: string, channels: ColorChannels) => void
+  setStopFromHex: (pcId: string, stopId: string, hex: string) => void
+  // Gradient-stop structure edits (gradient editor). `addStop` returns the new
+  // stop's id (or null if the palette color wasn't found) so the caller can keep
+  // dragging it.
+  addStop: (pcId: string, position: number) => string | null
+  removeStop: (pcId: string, stopId: string) => void
+  setStopPosition: (pcId: string, stopId: string, position: number) => void
+  setStopAutoPosition: (pcId: string, stopId: string, auto: boolean) => void
   setInputColorModel: (model: InputColorModel) => void
   setBlendingColorModel: (model: BlendingColorModel) => void
   // Flip which end of the scale is light; mirrors every gradient's stops.
@@ -131,7 +152,12 @@ export const usePaletteStore = create<PaletteStore>()(
         const settings = { ...DEFAULT_SETTINGS, ...document.settings }
         set({
           keyColors: document.keyColors.map((k) =>
-            normalizePaletteColor(k, settings.inputColorModel, settings.toneAxisDirection),
+            normalizePaletteColor(
+              k,
+              settings.inputColorModel,
+              settings.toneAxisDirection,
+              settings.blendingColorModel,
+            ),
           ),
           settings,
           shades: document.shades ?? { steps: defaultSteps() },
@@ -149,6 +175,7 @@ export const usePaletteStore = create<PaletteStore>()(
                 color,
                 state.settings.inputColorModel,
                 state.settings.toneAxisDirection,
+                state.settings.blendingColorModel,
               ),
             ],
           }
@@ -165,6 +192,7 @@ export const usePaletteStore = create<PaletteStore>()(
                 hexToColor(hex),
                 state.settings.inputColorModel,
                 state.settings.toneAxisDirection,
+                state.settings.blendingColorModel,
               ),
             ),
           ],
@@ -177,18 +205,15 @@ export const usePaletteStore = create<PaletteStore>()(
         set((state) => {
           const others = state.keyColors.filter((k) => k.id !== id).map((k) => keyColorOf(k))
           const color = harmoniousColor(others)
-          const { stops, keyStopId } = buildDefaultStops(color, state.settings.toneAxisDirection)
+          const { stops, keyStopId } = buildDefaultStops(
+            color,
+            state.settings.toneAxisDirection,
+            state.settings.blendingColorModel,
+            state.settings.inputColorModel,
+          )
           return {
             keyColors: state.keyColors.map((k) =>
-              k.id === id
-                ? {
-                    ...k,
-                    stops,
-                    keyStopId,
-                    customName: null,
-                    channels: colorToChannels(color, state.settings.inputColorModel),
-                  }
-                : k,
+              k.id === id ? { ...k, stops, keyStopId, customName: null } : k,
             ),
           }
         }),
@@ -209,57 +234,137 @@ export const usePaletteStore = create<PaletteStore>()(
           keyColors: state.keyColors.map((k) => (k.id === id ? { ...k, customName: name } : k)),
         })),
 
-      // A channel edit updates the typed buffer and recomputes the key stop's
-      // color (+ its lightness-driven position) from the full channel set. We
-      // keep the user's raw strings (don't re-derive channels here) so mid-edit
-      // input stays untouched.
-      setKeyColorChannel: (id, channelId, value) =>
+      // A channel edit updates the targeted stop's typed buffer and recomputes
+      // its color (+ its lightness-driven position when auto) from the full
+      // channel set. We keep the user's raw strings (don't re-derive channels
+      // here) so mid-edit input stays untouched.
+      setStopChannel: (pcId, stopId, channelId, value) =>
         set((state) => ({
           keyColors: state.keyColors.map((k) => {
-            if (k.id !== id) return k
-            const channels = { ...k.channels, [channelId]: value }
+            if (k.id !== pcId) return k
+            const stop = k.stops.find((s) => s.id === stopId)
+            if (stop === undefined) return k
+            const channels = { ...stop.channels, [channelId]: value }
             const color = channelsToColor(channels, state.settings.inputColorModel)
             return {
               ...k,
-              channels,
-              stops: setKeyColor(k, color, state.settings.toneAxisDirection),
+              stops: setStopColor(
+                k,
+                stopId,
+                color,
+                channels,
+                state.settings.toneAxisDirection,
+                state.settings.blendingColorModel,
+              ),
             }
           }),
         })),
 
-      // Patch several channels of one key color in a single update — used by
-      // the color picker's wheel drag (hue + saturation move together), so it
-      // lands as one undo step / one save.
-      setKeyColorChannels: (id, patch) =>
+      // Patch several channels of one stop in a single update — used by the color
+      // picker's wheel drag (hue + saturation move together), so it lands as one
+      // undo step / one save.
+      setStopChannels: (pcId, stopId, patch) =>
         set((state) => ({
           keyColors: state.keyColors.map((k) => {
-            if (k.id !== id) return k
-            const channels = { ...k.channels, ...patch }
+            if (k.id !== pcId) return k
+            const stop = k.stops.find((s) => s.id === stopId)
+            if (stop === undefined) return k
+            const channels = { ...stop.channels, ...patch }
             const color = channelsToColor(channels, state.settings.inputColorModel)
             return {
               ...k,
-              channels,
-              stops: setKeyColor(k, color, state.settings.toneAxisDirection),
+              stops: setStopColor(
+                k,
+                stopId,
+                color,
+                channels,
+                state.settings.toneAxisDirection,
+                state.settings.blendingColorModel,
+              ),
             }
           }),
         })),
 
-      // A hex edit sets the key stop's color, then re-derives the channel buffer.
-      setKeyColorFromHex: (id, hex) =>
+      // A hex edit sets the stop's color, then re-derives its channel buffer.
+      setStopFromHex: (pcId, stopId, hex) =>
         set((state) => {
           const color = hexToColor(hex)
+          const channels = colorToChannels(color, state.settings.inputColorModel)
           return {
             keyColors: state.keyColors.map((k) =>
-              k.id === id
+              k.id === pcId
                 ? {
                     ...k,
-                    stops: setKeyColor(k, color, state.settings.toneAxisDirection),
-                    channels: colorToChannels(color, state.settings.inputColorModel),
+                    stops: setStopColor(
+                      k,
+                      stopId,
+                      color,
+                      channels,
+                      state.settings.toneAxisDirection,
+                      state.settings.blendingColorModel,
+                    ),
                   }
                 : k,
             ),
           }
         }),
+
+      // Add a stop at `position` (0..1), color sampled from the gradient there.
+      // Returns the new stop's id so a drag can continue moving it.
+      addStop: (pcId, position) => {
+        let newStopId: string | null = null
+        set((state) => ({
+          keyColors: state.keyColors.map((k) => {
+            if (k.id !== pcId) return k
+            const { stops, stopId } = addStopToGradient(
+              k,
+              position,
+              state.settings.blendingColorModel,
+              state.settings.inputColorModel,
+            )
+            newStopId = stopId
+            return { ...k, stops }
+          }),
+        }))
+        return newStopId
+      },
+
+      // Remove a stop (no-op on endpoints / the key stop — guarded here too).
+      removeStop: (pcId, stopId) =>
+        set((state) => ({
+          keyColors: state.keyColors.map((k) =>
+            k.id === pcId && canDeleteStop(k, stopId)
+              ? { ...k, stops: removeStopFromGradient(k, stopId) }
+              : k,
+          ),
+        })),
+
+      // Pin a stop's position (a drag) — switches it to manual.
+      setStopPosition: (pcId, stopId, position) =>
+        set((state) => ({
+          keyColors: state.keyColors.map((k) =>
+            k.id === pcId ? { ...k, stops: setStopPositionInGradient(k, stopId, position) } : k,
+          ),
+        })),
+
+      // Toggle a stop's auto-position (the "A" button).
+      setStopAutoPosition: (pcId, stopId, auto) =>
+        set((state) => ({
+          keyColors: state.keyColors.map((k) =>
+            k.id === pcId
+              ? {
+                  ...k,
+                  stops: setStopAutoPositionInGradient(
+                    k,
+                    stopId,
+                    auto,
+                    state.settings.toneAxisDirection,
+                    state.settings.blendingColorModel,
+                  ),
+                }
+              : k,
+          ),
+        })),
 
       // Switching the input model leaves the canonical colors untouched and only
       // re-derives each key stop's channel buffer into the new model — so a
@@ -271,13 +376,24 @@ export const usePaletteStore = create<PaletteStore>()(
             settings: { ...state.settings, inputColorModel: model },
             keyColors: state.keyColors.map((k) => ({
               ...k,
-              channels: colorToChannels(keyColorOf(k), model),
+              stops: rederiveChannels(k.stops, model),
             })),
           }
         }),
 
+      // The blending model also defines the lightness metric for auto positions,
+      // so switching it re-positions every auto stop (manual stops stay put).
       setBlendingColorModel: (model) =>
-        set((state) => ({ settings: { ...state.settings, blendingColorModel: model } })),
+        set((state) => {
+          if (state.settings.blendingColorModel === model) return {}
+          return {
+            settings: { ...state.settings, blendingColorModel: model },
+            keyColors: state.keyColors.map((k) => ({
+              ...k,
+              stops: repositionAutoStops(k.stops, state.settings.toneAxisDirection, model),
+            })),
+          }
+        }),
 
       // Flipping the tone direction mirrors every gradient (position -> 1 - pos),
       // so the scale reverses while the colors and the key stop stay the same.

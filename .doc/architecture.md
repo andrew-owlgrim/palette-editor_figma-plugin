@@ -39,20 +39,24 @@ main.ts  ──showUI(opts,{initialDocument})──▶  App (props)
 
 ```ts
 type InputColorModel = 'hsl' | 'hsv' | 'lch'
-type BlendingColorModel = 'rgb' | 'hsl' | 'oklch'
+type BlendingColorModel = 'rgb' | 'hsl' | 'oklch' | 'lch'  // also = auto-position lightness metric
 type ToneAxisDirection = 'light-dark' | 'dark-light'   // which scale end is light
 
 type ColorChannels = Record<string, string>            // raw input strings by channel id
 
 // A gradient key point: canonical unclamped rgb color at a 0..1 axis position.
-interface GradientStop { id: string; position: number; color: Color }
+// `autoPosition` (default true) = position follows the color's lightness;
+// `channels` is a runtime-only edit buffer for THIS stop. (ADR-020/022)
+interface GradientStop {
+  id: string; position: number; color: Color
+  autoPosition: boolean; channels: ColorChannels
+}
 
 // A named color "ramp": a shade gradient whose `keyStopId` stop is the seed the
-// user picks/names ("the key color"). `channels` is a derived edit buffer for
-// that key stop. `customName` null = auto-named. (ADR-020)
+// user picks/names ("the key color"). `customName` null = auto-named. (ADR-020)
 interface PaletteColor {
   id: string; customName: string | null
-  stops: GradientStop[]; keyStopId: string; channels: ColorChannels
+  stops: GradientStop[]; keyStopId: string
 }
 interface Settings {
   inputColorModel: InputColorModel
@@ -63,13 +67,14 @@ interface Settings {
 interface ShadeScale { steps: Array<number | null> }
 interface PaletteDocument { keyColors: PaletteColor[]; settings: Settings; shades: ShadeScale }
 
-// Persisted shape: gradient `stops` + `keyStopId` + `customName` + `shades`;
-// `channels`/auto names re-derived on load. Loose to tolerate older files (pre-
-// gradient carry a single `color`/`channels`; pre-`customName` carry `name`) —
-// all migrated to a default gradient on load.
+// Persisted shape: gradient `stops` (incl. `autoPosition`) + `keyStopId` +
+// `customName` + `shades`; per-stop `channels`/auto names re-derived on load.
+// Loose to tolerate older files (pre-gradient carry a single `color`/`channels`;
+// pre-`customName` carry `name`; pre-editor omit `autoPosition` → defaults true).
 interface PersistedPaletteColor {
   id: string; customName?: string | null; name?: string
-  keyStopId?: string; stops?: { id: string; position: number; color: Color }[]
+  keyStopId?: string
+  stops?: { id: string; position: number; color: Color; autoPosition?: boolean }[]
   color?: Color; channels?: ColorChannels   // legacy single-color form
 }
 interface PersistedDocument {
@@ -80,24 +85,32 @@ interface PersistedDocument {
 **Source of truth for a color** is each `GradientStop.color` — a canonical culori
 color in float `rgb` mode, left **unclamped** so wide-gamut colors persist as
 extended sRGB (ADR-013). The "key color" of a `PaletteColor` is its key stop's
-color (`keyColorOf(pc)`); the hex in the UI and the `channels` buffer derive from
-it. `channels` are strings (not numbers) on purpose: they keep exactly what the
-user typed and tolerate mid-edit states.
+color (`keyColorOf(pc)`). **Each stop** carries its own `channels` edit buffer
+(ADR-022), so the picker can edit any stop, not just the key one; the hex in the
+UI and `channels` derive from the stop's color. `channels` are strings (not
+numbers) on purpose: they keep exactly what the user typed and tolerate mid-edit
+states.
 
 **Name** is `customName` (user-pinned) or, when `null`, an auto name derived from
 the key stop's color — effective name = `resolveName(pc)` (see Auto color naming).
 
-**Shade gradient (ADR-020/021):** a `PaletteColor` *is* its gradient — the key
-color is one stop. By default the gradient is black & white endpoints with the
-key color placed between them at its OKLch lightness; `toneAxisDirection` sets
-which endpoint is at position 0. The key stop's `position` is a rewritable default
-that follows the color's lightness on every edit (until a future gradient editor
-detaches it).
+**Shade gradient (ADR-020/021/022):** a `PaletteColor` *is* its gradient — the key
+color is one stop. By default the gradient runs from a **near-black**
+(`DARK_ENDPOINT_L` ≈ OKLab L 0.15, not pure black — cuts the indistinguishable
+dark zone) to white, with the key color placed between them at its lightness; the
+two endpoints are **pinned** at the scale ends (manual), only the key stop is
+auto. `toneAxisDirection` sets which endpoint is at position 0. A stop's `position` is auto-derived from its
+color's lightness **in the active blending model** (`modelLightness`: rgb/hsl →
+HSL L, oklch → OKLab L, lch → CIE L\*) while `autoPosition` is true (the default),
+and frozen once the user drags it / toggles "A" off in the gradient editor
+(ADR-022). Switching the blending model re-positions every auto stop.
 
-Update rules: a **channel edit** keeps the typed strings and recomputes `color`;
-a **hex edit** sets `color` then re-derives `channels`; an **input-model switch**
-leaves `color` untouched and only re-derives `channels` into the new model — so a
-switch is fully reversible (no lossy channel→channel round-trip).
+Update rules: a **channel/hex edit** targets a specific stop (`setStop*`) — a
+channel edit keeps the typed strings and recomputes that stop's `color`, a hex
+edit sets `color` then re-derives its `channels`; both reposition the stop only
+when it's auto. An **input-model switch** leaves every `color` untouched and only
+re-derives all stops' `channels` into the new model — so a switch is fully
+reversible (no lossy channel→channel round-trip).
 
 ## Color models — `src/color/models.ts`
 
@@ -140,13 +153,20 @@ export-ready by default.
 
 ## Shade gradient + scale — `src/color/gradient.ts` + `src/color/shades.ts`
 
-`gradient.ts` owns the per-`PaletteColor` gradient (ADR-020): `keyStopOf` /
-`keyColorOf` accessors, `buildDefaultStops(color, direction)` (black/white ends +
-key at its `oklchLightness`), `setKeyColor` (reposition the key stop on edit),
-`mirrorStops` (on a tone-direction flip), and `buildGradientSampler(stops,
-blending)` — a `u→Color` sampler via culori `interpolate` over the stops'
-`[color, position]` tuples in the blending mode (build once per row, sample per
-step). `shades.ts` owns the 0..1000 scale (ADR-021): `resolveSteps` (fill `null`
+`gradient.ts` owns the per-`PaletteColor` gradient (ADR-020/022): `keyStopOf` /
+`keyColorOf` accessors, `modelLightness(color, blending)` + `keyStopPosition`
+(auto-stop placement by the blending model's lightness), `makeStop` /
+`buildDefaultStops` (pinned near-black + white ends + auto key at its lightness), the stop-edit
+helpers `setStopColor` (recolor + reposition if auto), `addStop` (sample a color
+at a position, returns the new id), `removeStop`, `setStopPosition` (pin =
+manual), `setStopAutoPosition`, `repositionAutoStops` (on a blending-model
+change), `canDeleteStop` (endpoints + key stop are protected), `rederiveChannels`
+(on an input-model switch), `mirrorStops` (on a tone-direction flip),
+`buildGradientCss` (sampled CSS gradient for the editor track), and
+`buildGradientSampler(stops, blending)` — a `u→Color` sampler via culori
+`interpolate` over the stops' `[color, position]` tuples in the blending mode
+(build once per row, sample per step). `shades.ts` owns the 0..1000 scale
+(ADR-021): `resolveSteps` (fill `null`
 autos by even index-distribution between set anchors / the 0&1000 edges),
 `clampStepValue` (keep a typed value between its set neighbors), and the
 count/`SHADE_MAX` constants.
@@ -154,15 +174,28 @@ count/`SHADE_MAX` constants.
 ## Shades section UI — `src/components/Shades`
 
 `ShadesSection` renders the header (title + `CountStepper`) and, inside one
-horizontal `scroller`, two CSS grids that **share the same inline
-`grid-template-columns`** (`repeat(count, minmax(28px, 1fr))`) so the step row and
-the swatch grid stay column-aligned and scroll together. Swatch colors are
+horizontal `scroller`, the step row plus **one grid per key color** that all
+**share the same inline `grid-template-columns`** (`repeat(count, minmax(28px,
+1fr))`) so they stay column-aligned and scroll together. Swatch colors are
 memoized per row: one `buildGradientSampler` per `PaletteColor`, sampled at every
 resolved step (`value / 1000`). Swatches are display-only, fixed 40px tall, with
 the hairline border drawn **inside** via `::before` (`inset: 0`, `border-radius:
 inherit`, `color-mix(... var(--figma-color-text) 15% ...)`) so it never shifts the
 grid. `CountStepper` is −/+ `IconButton`s around a directly-editable field
 (clamped `[2, 26]`).
+
+- **Gradient editor (ADR-022):** each swatch row is a clickable `role="button"`
+  (hover `--figma-color-bg-hover`, active `--figma-color-bg-secondary`); clicking
+  toggles `editingId` and injects a full-width `GradientEditor` as the next
+  scroller child. `GradientEditor` paints the track via `buildGradientCss`, lays a
+  draggable `Handle` per stop, and shares one `usePointerDrag` for the whole track:
+  the first move decides whether it grabbed a stop (within `GRAB_PX`), hit a fixed
+  endpoint (no-op), or landed on empty track (`addStop` then drag the new id);
+  `begin/endLiveEdit` make the gesture one undo step. Below the track, one
+  `StopCard` per stop (`flex: 1`, full-width) — swatch opens the shared
+  `ColorPicker` for `(paletteColorId, stopId)`, a hover delete tile (hidden for
+  endpoints/key via `canDeleteStop`), a position-% label, and an **"A"** button
+  toggling `autoPosition` (brand-filled when auto).
 
 - **`StopInput` is a controlled-input gotcha (learned the hard way):** the DS
   `RawTextboxNumeric` renders `value` verbatim and reports edits as an already-
@@ -258,7 +291,7 @@ Lets the user pull colors off the canvas into the palette.
   (`{ fills }`, plain zustand) — deliberately outside the palette store so it
   never enters undo history or persistence.
 - **Use:** a per-card **eyedropper** (in the card's action row, shown only when
-  `fills` is non-empty) sets that color to `fills[0]` via `setKeyColorFromHex`;
+  `fills` is non-empty) sets the key stop's color to `fills[0]` via `setStopFromHex`;
   an **add-matching** button by "+" (disabled when no fills) appends every fill
   via `addKeyColors`.
 - Notes: assumes an sRGB document; paint opacity is ignored; fills don't refresh
@@ -285,17 +318,20 @@ App (app/App.tsx)
         ├── action row      reroll · eyedropper (when selection has a fill) · trash
         ├── NameInput       ghost field; auto name unless a custom one is pinned
         └── Popover         (right-top, anchored to the swatch)
-            └── ColorPicker  HueWheel · Gradient · GhostInput hex · ChannelInputs
+            └── ColorPicker  edits one stop (paletteColorId, stopId); key stop here
                 ├── HueWheel   model-aware conic hue + radial saturation, hairline ring; Handles (active + dots)
                 ├── Gradient   universal 1D slider (lightness/value axis); Handle
                 ├── Handle     white dot, optional color sample (draggable)
                 ├── GhostInput hex field — '#' as the icon-slot label, value without '#'
                 └── ChannelInput  TextboxNumeric w/ label in the DS `icon` slot
-└── ShadesSection          header: "Shades" + CountStepper (− [n] +); step row + swatch grid
-    │                       both share one grid-template (aligned columns), scroll together
+└── ShadesSection          header: "Shades" + CountStepper (− [n] +); step row + one row per key color
+    │                       all share one grid-template (aligned columns), scroll together
     ├── CountStepper        −/+ IconButtons around a directly-editable count field [2,26]
     ├── StopInput           DS TextboxNumeric (no icon); local string draft, commits parsed value on blur (empty = auto)
-    └── (swatch grid)       display-only cells = sampleGradient(pc.stops, step/1000, blending)
+    ├── (swatch row)        clickable; display-only cells = sampleGradient(pc.stops, step/1000, blending)
+    └── GradientEditor      injected under the active row (ADR-022): track w/ Handles + StopCards
+        ├── Handle          one per stop on the track (drag to move; press empty = add)
+        └── StopCard        full-width per stop: ColorSample → ColorPicker · "A" auto toggle · trash (hover)
 ```
 
 - Picker geometry + channel↔axis mapping: `src/color/picker.ts`. Drag binding:

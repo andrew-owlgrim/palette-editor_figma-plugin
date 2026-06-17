@@ -44,8 +44,8 @@ spaces and keeping the result available to everyone editing the same file.
   colors. (Figma's native eyedropper isn't available to plugins, so this works off
   the selection instead.)
 - **Shades** — a tonal scale generated for every key color. Each key color is a
-  gradient (black & white ends with the key color placed by its lightness); shades
-  are sampled along it in the **blending color model**. A row of step inputs uses
+  gradient (near-black & white ends with the key color placed by its lightness);
+  shades are sampled along it in the **blending color model**. A row of step inputs uses
   the tailwind 1/1000 scale (0…1000): a count stepper (2–26, default 11), values
   evenly distributed by default, each editable — unset steps show their auto value
   as a placeholder, and a custom value re-distributes the unset steps around it.
