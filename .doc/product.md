@@ -35,6 +35,9 @@ spaces and keeping the result available to everyone editing the same file.
     a custom name; the auto name follows the color as it changes.
   - The "+" button adds a new color chosen to be harmonious with the existing
     ones (auto-named); on an empty list it's a random color.
+  - **Reorder by drag** — drag a card to reposition it in the row; a floating
+    copy follows the cursor while the others shift to open a slot. The list
+    auto-scrolls when you drag near an edge, and a reorder is one undo step.
 - **Pull colors from the canvas** — selecting layers exposes their solid fills to
   the plugin: the per-card eyedropper sets a card to the first selected fill, and
   an **add-matching** button (next to "+") appends every selected fill as new key
@@ -61,7 +64,6 @@ spaces and keeping the result available to everyone editing the same file.
 ## Planned / not yet built
 
 - Gradient editor.
-- Drag-and-drop reordering of swatches (DnD Kit is already a dependency).
 - Palette generation from key colors (scales/harmonies) — the "first block"
   framing implies more blocks to come.
 - Blending using the configured blending color model.

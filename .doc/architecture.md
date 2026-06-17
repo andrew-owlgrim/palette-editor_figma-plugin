@@ -8,7 +8,8 @@
 - **Language:** TypeScript 5.
 - **Color:** `culori` v4 (+ `@types/culori`).
 - **State:** `zustand` v5 + `zundo` v2 (undo/redo).
-- **DnD (planned use):** `@dnd-kit/core` / `…/sortable` / `…/utilities`.
+- **DnD:** `@dnd-kit/core` / `…/sortable` / `…/utilities` — key-color card
+  reordering (ADR-019). React-typed; fits via the preact aliasing (ADR-002).
 - **Styling:** CSS Modules (built into the toolkit) + Figma CSS variables.
 
 ## Two threads + the bridge
@@ -134,7 +135,8 @@ rerolled color and reverts it to auto-name).
 - `addKeyColor` (harmonious, at end — see ADR-018), `addKeyColors(hexes)` (bulk
   add in one update = one undo step; used by "add matching"),
   `rerollKeyColor(id)` (replace one with a fresh harmonious color, auto-named),
-  `removeKeyColor`,
+  `removeKeyColor`, `moveKeyColor(fromId, toId)` (reorder via `arrayMove`, used
+  by drag-and-drop — one update = one undo step),
   `setKeyColorName(id, name | null)` (pin a custom name, or null = auto),
   `setKeyColorChannel` / `setKeyColorChannels` (update buffer + recompute `color`),
   `setKeyColorFromHex` (set `color` + re-derive channels).
@@ -209,7 +211,10 @@ App (app/App.tsx)
 │       └── SettingsPopover  two SegmentedControls (input / blending model)
 └── KeyColorsSection       header: "+" add · add-matching (from selection) · card list
     │                       (auto-scrolls to reveal new card(s) on add)
+    │                       wraps the list in DndContext + SortableContext
+    │                       (horizontal) for drag-reorder; DragOverlay → KeyColorCardPreview
     └── KeyColorCard        swatch (top) · action row (hover) · NameInput (footer)
+        │                   sortable: whole card is the drag source (ADR-019)
         ├── ColorSample     fills the card top → opens the color picker popover
         ├── action row      reroll · eyedropper (when selection has a fill) · trash
         ├── NameInput       ghost field; auto name unless a custom one is pinned

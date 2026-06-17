@@ -1,9 +1,14 @@
 # Tasks
 
-Volatile working state. Last updated: 2026-06-16.
+Volatile working state. Last updated: 2026-06-17.
 
 ## Done
 
+- **Drag-and-drop reordering** (ADR-019): `@dnd-kit/sortable`,
+  `horizontalListSortingStrategy`; whole card is the drag source
+  (`PointerSensor` `distance: 1`); `DragOverlay` clone (`KeyColorCardPreview`) +
+  hidden original = hole; commits via `moveKeyColor` (`arrayMove`, one undo
+  step); name field stops `pointerdown` so text-select stays native.
 - **Harmonious color generation** (ADR-018): `color/harmony.ts`
   `harmoniousColor(existing)` — max-min (farthest-point) over random candidates
   in OKLab, lightness-bounded to the central ~60%. Used by `addKeyColor` (was
@@ -50,10 +55,9 @@ Volatile working state. Last updated: 2026-06-16.
 
 ## Next up
 
-- **Custom color picker** to replace the native `<input type="color">` placeholder
-  (oklch/hsv canvas). The `ColorSample` component is the integration point.
-- **Gradient editor** (stops editor).
-- **Drag-and-drop reordering** of key colors (DnD Kit already installed).
+- **Shades** — create gradient stops along lightness axis and make shade stops via linear interpolation in current color blening model.
+- **Stops panel** for editing shade stops
+- **Gradient editor** — edit shades gradient key stops.
 
 ## Backlog / ideas
 

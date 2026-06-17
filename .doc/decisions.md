@@ -82,8 +82,9 @@ value) — see `ChannelInput`.
   `picker: { angle, radius, axis }` on each `ColorModelDef`; drag via
   `usePointerDrag` (window-level pointer capture). A custom `Popover` adds a
   `fixed` `right-top` placement that flips/clamps to the window.
-- **Consequence:** no canvas; DnD Kit stays unused. (Wheel color fidelity & hue
-  axis amended by ADR-014.)
+- **Consequence:** no canvas; the picker doesn't use DnD Kit. (DnD Kit was later
+  adopted for key-color reordering — ADR-019. Wheel color fidelity & hue axis
+  amended by ADR-014.)
 
 ## ADR-012 — Coalesce live edits into one undo step
 
@@ -176,3 +177,23 @@ Amends the persistence note in ADR-013.
 - **Consequence:** works at any count (empty → random, one → a distant partner);
   intentionally non-deterministic; envelope is tunable. Rejected hue-template
   schemes and a "matched L/C + hue-gap" hybrid as too rigid/boring.
+
+## ADR-019 — Drag-and-drop key-color reordering (DnD Kit, whole-card source)
+
+- **Context:** users need to reorder key colors. DnD Kit was already a dependency
+  (ADR-002 aliasing makes its React types fit Preact); the card list is a
+  horizontal scroller. The card is full of interactive controls (swatch→picker,
+  reroll/eyedropper/trash, name field), so the drag trigger must not steal clicks.
+- **Decision:** `@dnd-kit/sortable` with `horizontalListSortingStrategy`. The
+  **whole card** is the drag source (no separate handle), with a `PointerSensor`
+  `activationConstraint: { distance: 1 }` — a click never moves, so it falls
+  through to the controls; the slightest drag starts a reorder. Use a
+  `DragOverlay` clone (`KeyColorCardPreview`) and hide the original
+  (`visibility: hidden`) so the dragged card floats above the scroll container and
+  leaves a clean hole. Reorder commits via the store's `moveKeyColor` (`arrayMove`)
+  as one undo step. The name field stops `pointerdown` propagation so text
+  selection/typing stays native despite `distance: 1`.
+- **Consequence:** "grab anywhere" with no extra chrome; correct hole + float in an
+  `overflow` scroller. Tradeoff: the tiny activation distance means in-card pointer
+  gestures need an explicit escape hatch (the name field has one). Whole-card vs.
+  a swatch/handle trigger is parked for revisiting (see backlog).

@@ -1,10 +1,9 @@
-import {
-  IconButton,
-  IconEyedropperSmall24,
-  IconShuffleSmall24,
-  IconTrash24,
-} from '@create-figma-plugin/ui'
+import { IconButton, IconEyedropperSmall24, IconTrash24 } from '@create-figma-plugin/ui'
 import { useRef, useState } from 'preact/hooks'
+import type { JSX } from 'preact'
+import { useSortable } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { IconDice24 } from '@/components/icons/IconDice24'
 import { ColorPicker } from '@/components/ColorPicker/ColorPicker'
 import { ColorSample } from '@/components/ColorSample/ColorSample'
 import { NameInput } from '@/components/NameInput/NameInput'
@@ -32,10 +31,27 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
   const anchorRef = useRef<HTMLDivElement>(null)
   const [pickerOpen, setPickerOpen] = useState(false)
 
+  // Whole card is the drag source. With the section's `distance: 1` activation
+  // constraint a plain click still falls through to the swatch/buttons/name —
+  // drag only starts once the pointer actually moves. While dragging, the
+  // original is hidden (the floating clone lives in the section's DragOverlay),
+  // leaving a hole the siblings animate around.
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
+    id: keyColor.id,
+  })
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    visibility: isDragging ? ('hidden' as const) : undefined,
+  }
+  // DnD Kit types `attributes` against React's DOM types (e.g. `role: string`);
+  // cast to Preact's so it fits a Preact element.
+  const sortableAttributes = attributes as JSX.HTMLAttributes<HTMLDivElement>
+
   const hex = colorToHex(keyColor.color)
 
   return (
-    <div class={styles.card}>
+    <div ref={setNodeRef} class={styles.card} style={style} {...sortableAttributes} {...listeners}>
       <div class={styles.swatch} ref={containerRef}>
         <div class={styles.anchor} ref={anchorRef}>
           <ColorSample hex={hex} onClick={() => setPickerOpen((open) => !open)} />
@@ -44,7 +60,7 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
           <div class={styles.action}>
             <Tooltip content="Reroll color">
               <IconButton onClick={() => rerollKeyColor(keyColor.id)}>
-                <IconShuffleSmall24 />
+                <IconDice24 />
               </IconButton>
             </Tooltip>
           </div>
@@ -76,7 +92,11 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
         </Popover>
       </div>
 
-      <div class={styles.footer}>
+      {/* The name field is a text-edit zone, not a drag handle: stop pointerdown
+          from reaching the card's drag listeners so click/focus/typing and mouse
+          text-selection stay native (the `distance: 1` sensor would otherwise
+          hijack a select-drag). Dragging the card still works from the swatch. */}
+      <div class={styles.footer} onPointerDown={(event) => event.stopPropagation()}>
         <NameInput
           value={resolveName(keyColor)}
           onCommit={(name) => setKeyColorName(keyColor.id, name)}

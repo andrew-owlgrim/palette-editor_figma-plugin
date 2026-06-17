@@ -1,6 +1,7 @@
 import { create, useStore } from 'zustand'
 import { temporal } from 'zundo'
 import type { TemporalState } from 'zundo'
+import { arrayMove } from '@dnd-kit/sortable'
 import type {
   BlendingColorModel,
   ColorChannels,
@@ -38,6 +39,9 @@ interface PaletteActions {
   // Replace one key color with a fresh random-but-harmonious one (auto-named).
   rerollKeyColor: (id: string) => void
   removeKeyColor: (id: string) => void
+  // Reorder: move the key color `fromId` to the slot currently held by `toId`
+  // (the DnD over-target). One update = one undo step / one save.
+  moveKeyColor: (fromId: string, toId: string) => void
   // null = revert to auto-naming; a string = pin a custom name.
   setKeyColorName: (id: string, name: string | null) => void
   setKeyColorChannel: (id: string, channelId: string, value: string) => void
@@ -125,6 +129,14 @@ export const usePaletteStore = create<PaletteStore>()(
 
       removeKeyColor: (id) =>
         set((state) => ({ keyColors: state.keyColors.filter((k) => k.id !== id) })),
+
+      moveKeyColor: (fromId, toId) =>
+        set((state) => {
+          const from = state.keyColors.findIndex((k) => k.id === fromId)
+          const to = state.keyColors.findIndex((k) => k.id === toId)
+          if (from === -1 || to === -1 || from === to) return {}
+          return { keyColors: arrayMove(state.keyColors, from, to) }
+        }),
 
       setKeyColorName: (id, name) =>
         set((state) => ({

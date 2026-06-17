@@ -28,3 +28,15 @@ diffing/snapshotting on every `set`. Possibly a command/patch-based history
 ## Rework borders in layout
 
 **Why:** borders change dimensions of elements and add micro shifts (particularly for color picker popover)
+
+## Revisit the drag trigger on key-color cards
+
+**Why:** the whole card is currently the drag source (`useSortable` listeners on
+the card root, `distance: 1` activation). It works, but a tiny pointer move
+anywhere on the card starts a reorder, which constrains in-card interactions
+(the name field already needs a `stopPropagation` escape hatch).
+
+**Consider:** making a **draggable color sample** (the swatch) the trigger
+instead of the entire card — or a dedicated handle. Weigh the clearer
+affordance and freed-up card surface against losing "grab anywhere" and the
+extra wiring (separate handle node, hover reveal).

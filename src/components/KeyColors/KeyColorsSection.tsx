@@ -1,6 +1,17 @@
 import { IconButton, IconPlusSmall24, IconSelectMatchingSmall24 } from '@create-figma-plugin/ui'
-import { useEffect, useRef } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+} from '@dnd-kit/core'
+import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
+import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { KeyColorCard } from './KeyColorCard'
+import { KeyColorCardPreview } from './KeyColorCardPreview'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { usePaletteStore } from '@/store'
 import { useSelectionStore } from '@/store/selection'
@@ -10,7 +21,14 @@ export function KeyColorsSection() {
   const keyColors = usePaletteStore((s) => s.keyColors)
   const addKeyColor = usePaletteStore((s) => s.addKeyColor)
   const addKeyColors = usePaletteStore((s) => s.addKeyColors)
+  const moveKeyColor = usePaletteStore((s) => s.moveKeyColor)
   const selectionFills = useSelectionStore((s) => s.fills)
+
+  // Id of the card currently being dragged (drives the DragOverlay clone).
+  const [activeId, setActiveId] = useState<string | null>(null)
+  // Tiny activation distance: a real click never moves, so it falls through to
+  // the card's controls; the slightest drag starts a reorder.
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 1 } }))
 
   const listRef = useRef<HTMLDivElement>(null)
   // Set only by the add buttons so we scroll on user-add, not on load/undo.
@@ -37,6 +55,21 @@ export function KeyColorsSection() {
     addKeyColors(selectionFills)
   }
 
+  function handleDragStart(event: DragStartEvent) {
+    setActiveId(String(event.active.id))
+  }
+
+  function handleDragEnd(event: DragEndEvent) {
+    const { active, over } = event
+    if (over !== null && active.id !== over.id) {
+      moveKeyColor(String(active.id), String(over.id))
+    }
+    setActiveId(null)
+  }
+
+  const activeKeyColor =
+    activeId !== null ? (keyColors.find((k) => k.id === activeId) ?? null) : null
+
   return (
     <section class={styles.section}>
       <div class={styles.header}>
@@ -58,11 +91,27 @@ export function KeyColorsSection() {
       {keyColors.length === 0 ? (
         <div class={styles.empty}>No key colors yet</div>
       ) : (
-        <div class={styles.list} ref={listRef}>
-          {keyColors.map((keyColor) => (
-            <KeyColorCard key={keyColor.id} keyColor={keyColor} />
-          ))}
-        </div>
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+          onDragCancel={() => setActiveId(null)}
+        >
+          <SortableContext
+            items={keyColors.map((k) => k.id)}
+            strategy={horizontalListSortingStrategy}
+          >
+            <div class={styles.list} ref={listRef}>
+              {keyColors.map((keyColor) => (
+                <KeyColorCard key={keyColor.id} keyColor={keyColor} />
+              ))}
+            </div>
+          </SortableContext>
+          <DragOverlay>
+            {activeKeyColor !== null ? <KeyColorCardPreview keyColor={activeKeyColor} /> : null}
+          </DragOverlay>
+        </DndContext>
       )}
     </section>
   )

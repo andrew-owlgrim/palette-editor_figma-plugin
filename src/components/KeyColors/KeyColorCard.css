@@ -2,13 +2,30 @@
   display: flex;
   flex-direction: column;
   flex: 0 0 auto;
-  width: 160px;
-  height: 160px;
+  width: 136px;
+  height: 136px;
   background-color: var(--figma-color-bg);
   border: 1px solid var(--figma-color-border);
   border-radius: 8px;
   /* Clip the swatch's top corners to the card radius. */
   overflow: hidden;
+  /* Let the pointer sensor own gestures instead of the browser panning. */
+  touch-action: none;
+}
+
+/* Floating clone shown in the DragOverlay while reordering: same card frame,
+   lifted with a shadow. */
+.preview {
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.28);
+}
+
+.previewName {
+  display: block;
+  padding: 4px 6px;
+  color: var(--figma-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .swatch {
