@@ -23,12 +23,23 @@ spaces and keeping the result available to everyone editing the same file.
 ## Current features
 
 - **Key colors** — a horizontally scrolling list of color cards. Each card has:
-  - a square color sample (click opens a color picker — currently the native
-    OS picker as a placeholder),
+  - a square color sample — click opens a **custom color picker** in a popover
+    (hue wheel, lightness slider, hex field, and per-channel inputs in the
+    current **input color model**),
+  - a **reroll** button — replaces the color with a fresh one that's harmonious
+    with the rest of the palette,
+  - an **eyedropper** button — appears when the canvas selection has a fill; sets
+    the card to that color,
   - a delete button,
-  - a name field,
-  - numeric inputs for the channels of the current **input color model**.
-  - The "+" button adds a new white (`#ffffff`) swatch named "white".
+  - a name field — **auto-named** from the color (e.g. "Lavender") unless you pin
+    a custom name; the auto name follows the color as it changes.
+  - The "+" button adds a new color chosen to be harmonious with the existing
+    ones (auto-named); on an empty list it's a random color.
+- **Pull colors from the canvas** — selecting layers exposes their solid fills to
+  the plugin: the per-card eyedropper sets a card to the first selected fill, and
+  an **add-matching** button (next to "+") appends every selected fill as new key
+  colors. (Figma's native eyedropper isn't available to plugins, so this works off
+  the selection instead.)
 - **Settings popover** (gear icon, top-right):
   - **Input color model** — `HSL` / `HSV` / `LCH`. Switching it recomputes every
     key color's channel values into the new model.
@@ -49,7 +60,6 @@ spaces and keeping the result available to everyone editing the same file.
 
 ## Planned / not yet built
 
-- Custom color picker (replacing the native one).
 - Gradient editor.
 - Drag-and-drop reordering of swatches (DnD Kit is already a dependency).
 - Palette generation from key colors (scales/harmonies) — the "first block"

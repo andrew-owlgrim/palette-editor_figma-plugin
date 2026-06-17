@@ -116,11 +116,13 @@ export-ready by default.
 
 `harmoniousColor(existing)` returns a color that fits an arbitrary existing set:
 best-candidate / farthest-point sampling — draw random candidates and keep the
-one whose nearest existing color is most distant in OKLab. Lightness is bounded
-to the central ~60% (OKLCH `L ∈ [0.2, 0.8]`) so colors keep tonal headroom; hue
-and chroma are free (out-of-gamut chroma reduced via `toGamut`). Random by design
-(empty set → random). Used by `addKeyColor` and the per-card reroll
-(`rerollKeyColor`, which excludes the rerolled color and reverts it to auto-name).
+one whose nearest existing color is most distant in OKLab. Candidates are bounded
+in lightness to a generous mid-range (so colors keep tonal headroom) and in
+chroma to a moderate cap (avoids neon); hue is free. Out-of-gamut samples are
+reduced via `toGamut`. Tuning constants (lightness range, chroma cap, candidate
+count) live in the module. Random by design (empty set → random). Used by
+`addKeyColor` and the per-card reroll (`rerollKeyColor`, which excludes the
+rerolled color and reverts it to auto-name).
 
 ## Store — `src/store/index.ts`
 

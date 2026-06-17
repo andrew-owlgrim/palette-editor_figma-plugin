@@ -169,9 +169,10 @@ Amends the persistence note in ADR-013.
 - **Decision:** `color/harmony.ts` `harmoniousColor(existing)` — best-candidate /
   farthest-point: draw N random candidates, keep the one whose nearest existing
   color is farthest in OKLab (ΔEok). Random by design (reroll differs each time).
-  Constrain **only lightness** (OKLCH L ∈ [0.2, 0.8], central ~60%) so colors
-  keep tonal-scale headroom; hue/chroma stay free (out-of-gamut chroma reduced
-  via `toGamut`). Reroll excludes the rerolled color and reverts it to auto-name.
+  Bound candidates in lightness (a generous mid-range, so colors keep tonal-scale
+  headroom) and chroma (a moderate cap, to avoid neon); hue is free, out-of-gamut
+  samples reduced via `toGamut`. Exact bounds are tuning constants in
+  `harmony.ts`. Reroll excludes the rerolled color and reverts it to auto-name.
 - **Consequence:** works at any count (empty → random, one → a distant partner);
   intentionally non-deterministic; envelope is tunable. Rejected hue-template
   schemes and a "matched L/C + hue-gap" hybrid as too rigid/boring.
