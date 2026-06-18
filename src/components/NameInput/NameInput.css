@@ -24,13 +24,3 @@
 .input:focus {
   border-color: var(--figma-color-border-selected);
 }
-
-/* Auto: read-only, muted — the name follows the color (no hover/focus affordance,
-   matching the stop position's auto state). */
-.auto,
-.auto:hover,
-.auto:focus {
-  color: var(--figma-color-text-secondary);
-  border-color: transparent;
-  cursor: default;
-}

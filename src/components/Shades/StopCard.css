@@ -77,7 +77,8 @@
 
 /* Compact numeric % field. Ghost by default (the DS textbox's filled bg/border
    stripped), filled on hover, full DS textbox on focus — restyled on the inner
-   <input> the DS component renders. */
+   <input> the DS component renders. Hover sets only the background (not the
+   border) so the focus border isn't overridden while hovering a focused field. */
 .positionInput {
   width: 52px;
 }
@@ -87,21 +88,11 @@
   border-color: transparent;
 }
 
-.positionInput input:not(:disabled):hover {
+.positionInput input:hover {
   background-color: var(--figma-color-bg-secondary);
-  border-color: transparent;
 }
 
 .positionInput input:focus {
   background-color: var(--figma-color-bg-secondary);
   border-color: var(--figma-color-border-selected);
-}
-
-/* Auto: derived, non-editable — keep the ghost box but mute the value (no DS
-   disabled border/fill). */
-.positionAuto input,
-.positionAuto input:disabled {
-  background-color: transparent;
-  border-color: transparent;
-  color: var(--figma-color-text-secondary);
 }

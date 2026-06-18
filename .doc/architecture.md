@@ -153,12 +153,14 @@ export-ready by default.
   the custom name is blank), else `customName` — derive-on-read; the auto name is
   never stored, so it follows the color for free and a model switch leaves it
   untouched.
-- **`NameInput`** (`components/NameInput`) is read-only + muted when auto; when
-  manual it edits a draft and commits on blur/Enter (empty → `setKeyColorName`
-  reverts to auto; non-empty → pins it), Escape cancels. Name fields do NOT
-  select-on-focus (unlike the numeric position field). The `AutoToggle` ("A")
-  beside it calls `setKeyColorNameAuto`; on→off seeds `customName` from the current
-  auto name. While not focused it shows `value`, so the auto name updates live.
+- **`NameInput`** (`components/NameInput`) is always editable; it commits on
+  blur/Enter ONLY if the text changed — so blurring an auto name untouched leaves
+  it auto, while editing it pins a custom name (empty → reverts to auto; non-empty
+  → manual). Escape cancels. Name fields do NOT select-on-focus (unlike the numeric
+  position field). The `AutoToggle` ("A") beside it calls `setKeyColorNameAuto`
+  (on→off seeds `customName` from the current auto name). While not focused it shows
+  `value`, so the auto name updates live. The position field works the same way
+  (edit-to-pin on change); auto values aren't muted — the "A" toggle is the cue.
 
 ## Shade gradient + scale — `src/color/gradient.ts` + `src/color/shades.ts`
 
@@ -241,7 +243,8 @@ rerolled color and reverts it to auto-name).
   default gradient; default missing settings/shades).
 - `addKeyColor` (harmonious, at end — see ADR-018), `addKeyColors(hexes)` (bulk
   add in one update = one undo step; used by "add matching"),
-  `rerollKeyColor(id)` (rebuild a fresh harmonious default gradient, auto-named),
+  `rerollKeyColor(id)` (rebuild a fresh harmonious default gradient; the name is
+  kept — auto names re-derive, manual names are the user's),
   `removeKeyColor`, `moveKeyColor(fromId, toId)` (reorder via `arrayMove`, used
   by drag-and-drop — one update = one undo step),
   `setKeyColorName(id, name)` (pin a custom name; empty reverts to auto),

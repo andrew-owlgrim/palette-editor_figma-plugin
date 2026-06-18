@@ -110,7 +110,7 @@ interface PaletteActions {
   hydrate: (document: PersistedDocument) => void
   addKeyColor: () => void
   addKeyColors: (hexes: string[]) => void
-  // Replace one key color with a fresh random-but-harmonious one (auto-named).
+  // Replace one key color with a fresh random-but-harmonious one (name kept).
   rerollKeyColor: (id: string) => void
   removeKeyColor: (id: string) => void
   // Reorder: move the key color `fromId` to the slot currently held by `toId`
@@ -118,8 +118,8 @@ interface PaletteActions {
   moveKeyColor: (fromId: string, toId: string) => void
   // Pin a custom name (switches to manual); an empty string reverts to auto.
   setKeyColorName: (id: string, name: string) => void
-  // Toggle auto-naming (the "A" button). On→off seeds the custom name from the
-  // current auto name if none was typed, so the field starts populated.
+  // Toggle auto-naming (the "A" button). On→off seeds the custom name with the
+  // current auto name, so toggling never changes the displayed value.
   setKeyColorNameAuto: (id: string, auto: boolean) => void
   // Color edits target a specific stop (the key stop or any gradient stop).
   setStopChannel: (pcId: string, stopId: string, channelId: string, value: string) => void
@@ -207,8 +207,9 @@ export const usePaletteStore = create<PaletteStore>()(
         })),
 
       // Reroll: a fresh color harmonious with the *other* key colors (self
-      // excluded so it can move into a gap). Rebuilds the default gradient and
-      // reverts to auto-naming so the name follows the new color.
+      // excluded so it can move into a gap). Rebuilds the default gradient but
+      // leaves the name as-is — an auto name follows the new color on its own; a
+      // manual name is the user's, so reroll must not clobber it.
       rerollKeyColor: (id) =>
         set((state) => {
           const others = state.keyColors.filter((k) => k.id !== id).map((k) => keyColorOf(k))
@@ -220,9 +221,7 @@ export const usePaletteStore = create<PaletteStore>()(
             state.settings.inputColorModel,
           )
           return {
-            keyColors: state.keyColors.map((k) =>
-              k.id === id ? { ...k, stops, keyStopId, customName: '', autoName: true } : k,
-            ),
+            keyColors: state.keyColors.map((k) => (k.id === id ? { ...k, stops, keyStopId } : k)),
           }
         }),
 
@@ -249,10 +248,10 @@ export const usePaletteStore = create<PaletteStore>()(
         set((state) => ({
           keyColors: state.keyColors.map((k) => {
             if (k.id !== id) return k
-            // Going manual: seed from the current auto name when nothing's typed,
-            // so the field opens populated (mirrors freezing a stop's position).
-            const customName =
-              auto || k.customName.trim() !== '' ? k.customName : autoName(keyColorOf(k))
+            // Going manual seeds the field with the CURRENT auto name, so toggling
+            // never changes the displayed value (mirrors freezing a stop's
+            // position at its current spot rather than restoring an old one).
+            const customName = auto ? k.customName : autoName(keyColorOf(k))
             return { ...k, autoName: auto, customName }
           }),
         })),

@@ -137,10 +137,12 @@ Amends the persistence note in ADR-013.
   duplicate auto names possible (export-time dedupe deferred).
 - **Amended:** the implicit `customName: string | null` (null = auto) became an
   explicit `{ customName: string, autoName: boolean }` pair — mirroring a stop's
-  `{ position, autoPosition }` so the UI can show the same auto/manual toggle
-  ("A"), read-only-when-auto field, and preserve a typed name across toggles.
-  `autoName` is persisted (migrated: auto iff no name was set); empty manual edit
-  reverts to auto.
+  `{ position, autoPosition }` so the UI shows the same auto/manual toggle ("A").
+  `autoName` is persisted (migrated: auto iff no name was set). Both the name and
+  position fields are always editable and pin (→ manual) only when the value
+  actually changes on blur — like dragging a gradient handle; empty manual name
+  reverts to auto. Toggling auto→manual via "A" seeds the field with the current
+  auto value, so the toggle itself never changes the value. Reroll keeps the name.
 
 ## ADR-016 — Canvas selection fills (eyedropper, add-matching)
 

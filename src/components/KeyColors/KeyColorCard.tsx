@@ -104,7 +104,6 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
       <div class={styles.footer} onPointerDown={(event) => event.stopPropagation()}>
         <NameInput
           value={resolveName(keyColor)}
-          auto={keyColor.autoName}
           onCommit={(name) => setKeyColorName(keyColor.id, name)}
         />
         <AutoToggle

@@ -5,7 +5,7 @@
   --shades-inset: 12px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
   padding: 12px 0;
 }
 
@@ -26,12 +26,12 @@
 .scroller {
   display: flex;
   flex-direction: column;
-  gap: 6px;
   overflow-x: auto;
   padding-bottom: 4px;
 }
 
 .steps {
+  margin-bottom: 8px;
   display: grid;
   gap: 4px;
   padding: 0 var(--shades-inset);

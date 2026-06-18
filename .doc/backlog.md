@@ -56,3 +56,9 @@ either restore per-field undo while a field is focused (and keep it out of the
 plugin history), or keep the unified plugin-history behavior but make it obvious.
 Audit all fields (`NameInput`, `StopInput`, `CountStepper`, `ChannelInput`,
 `GhostInput`) against whichever model is chosen.
+
+## Consider reworking scrollbars
+
+**Why** cureent scrollbars are looking too bold and they cause layout shifts when area become scrollable
+
+**Consider** possibility of making figma-like scrollbar appearing only when scrollable zone with floating position that don't affect the layout

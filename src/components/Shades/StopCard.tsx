@@ -18,22 +18,19 @@ interface StopCardProps {
   canDelete: boolean
 }
 
-// Position field for a stop. One field for both states so the footer never jumps:
-// - manual: ghost numeric input. Shows "NN%" at rest, the bare number while
-//   editing (the RawTextboxNumeric controlled-input gotcha — see StopInput);
-//   commits the parsed value [0..100] on blur. Keeps DS numeric behaviour
-//   (select-on-focus, arrow increments).
-// - auto: same box, disabled, muted — the position is derived, not editable.
+// Position field for a stop. Always editable (auto or manual): shows "NN%" at
+// rest, the bare number while editing (the RawTextboxNumeric controlled-input
+// gotcha — see StopInput). On blur it commits ONLY if the value changed, so
+// editing an auto value pins it (→ manual, like dragging the handle) while
+// blurring it untouched leaves it auto. Keeps DS numeric behaviour (select-on-
+// focus, arrow increments).
 function PositionField({
   percent,
-  auto,
   onCommit,
 }: {
   percent: number
-  auto: boolean
   onCommit: (pct: number) => void
 }) {
-  const stored = `${percent}%`
   const [draft, setDraft] = useState(String(percent))
   const [focused, setFocused] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
@@ -41,7 +38,10 @@ function PositionField({
   function commit() {
     setFocused(false)
     const parsed = Number.parseFloat(draft.trim())
-    if (Number.isFinite(parsed)) onCommit(Math.min(100, Math.max(0, parsed)))
+    if (Number.isFinite(parsed)) {
+      const clamped = Math.min(100, Math.max(0, parsed))
+      if (clamped !== percent) onCommit(clamped)
+    }
   }
 
   // Select the value on focus. The DS textbox selects on focus too, but our
@@ -51,13 +51,11 @@ function PositionField({
     if (focused) inputRef.current?.select()
   }, [focused])
 
-  const fieldClass = auto ? `${styles.positionInput} ${styles.positionAuto}` : styles.positionInput
   return (
-    <div class={fieldClass}>
+    <div class={styles.positionInput}>
       <TextboxNumeric
         ref={inputRef}
-        value={focused ? draft : stored}
-        disabled={auto}
+        value={focused ? draft : `${percent}%`}
         minimum={0}
         maximum={100}
         integer
@@ -120,7 +118,6 @@ export function StopCard({ paletteColorId, stop, isKey, canDelete }: StopCardPro
       <div class={styles.footer}>
         <PositionField
           percent={percent}
-          auto={stop.autoPosition}
           onCommit={(pct) => setStopPosition(paletteColorId, stop.id, pct / 100)}
         />
         <AutoToggle

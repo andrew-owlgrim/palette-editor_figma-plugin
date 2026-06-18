@@ -36,7 +36,7 @@ export function ShadesSection() {
 
   // The step row and every swatch row share this column template so columns line
   // up; the scroller scrolls them together when there are many steps.
-  const columns = { gridTemplateColumns: `repeat(${count}, minmax(28px, 1fr))` }
+  const columns = { gridTemplateColumns: `repeat(${count}, minmax(40px, 1fr))` }
 
   function toggleEditing(id: string) {
     setEditingId((current) => (current === id ? null : id))
