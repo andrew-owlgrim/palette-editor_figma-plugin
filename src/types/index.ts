@@ -58,6 +58,8 @@ export interface Settings {
   inputColorModel: InputColorModel
   blendingColorModel: BlendingColorModel
   toneAxisDirection: ToneAxisDirection
+  // Name of the Figma variable collection that "Create variables" writes into.
+  collectionName: string
 }
 
 // The shade scale: one entry per shade step, a target value on the 0..1000 tone
@@ -124,4 +126,49 @@ export interface SelectionFillsHandler extends EventHandler {
 export interface RequestSelectionFillsHandler extends EventHandler {
   name: 'REQUEST_SELECTION_FILLS'
   handler: () => void
+}
+
+// --- Export ----------------------------------------------------------------
+// The UI computes the resolved palette (names + per-step colors, via the same
+// samplers the swatch grid uses) and hands it to the main thread, which is the
+// only place `figma.*` (canvas nodes, variables, styles) exists.
+
+// One resolved shade: its tone-axis step value (0..1000) and display hex.
+export interface ExportShade {
+  step: number
+  hex: string
+}
+
+// One key color's resolved ramp: effective name + every shade.
+export interface ExportColor {
+  name: string
+  shades: ExportShade[]
+}
+
+// The whole palette, ready to materialize on the Figma side.
+export interface ExportPalette {
+  // Target variable collection name (used by CREATE_VARIABLES; also names the
+  // swatch container frame).
+  collectionName: string
+  colors: ExportColor[]
+}
+
+// UI -> main: drop the palette on the canvas as a grid of named rectangles.
+export interface ExportSwatchesHandler extends EventHandler {
+  name: 'EXPORT_SWATCHES'
+  handler: (palette: ExportPalette) => void
+}
+
+// UI -> main: write the palette into the file's variables (collection from
+// settings; variables named `{name}/{step}`).
+export interface CreateVariablesHandler extends EventHandler {
+  name: 'CREATE_VARIABLES'
+  handler: (palette: ExportPalette) => void
+}
+
+// UI -> main: write the palette into the file's paint styles (named
+// `{name}/{step}`, no collection).
+export interface CreateStylesHandler extends EventHandler {
+  name: 'CREATE_STYLES'
+  handler: (palette: ExportPalette) => void
 }

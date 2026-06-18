@@ -45,10 +45,14 @@ function newId(): string {
   return `kc_${Date.now().toString(36)}_${idCounter.toString(36)}`
 }
 
+// Default name of the variable collection "Create variables" writes into.
+export const DEFAULT_COLLECTION_NAME = 'Palette'
+
 const DEFAULT_SETTINGS: Settings = {
   inputColorModel: 'hsl',
   blendingColorModel: 'oklch',
   toneAxisDirection: 'light-dark',
+  collectionName: DEFAULT_COLLECTION_NAME,
 }
 
 function defaultSteps(): Array<number | null> {
@@ -135,6 +139,8 @@ interface PaletteActions {
   setStopAutoPosition: (pcId: string, stopId: string, auto: boolean) => void
   setInputColorModel: (model: InputColorModel) => void
   setBlendingColorModel: (model: BlendingColorModel) => void
+  // Set the target variable-collection name (empty reverts to the default).
+  setCollectionName: (name: string) => void
   // Flip which end of the scale is light; mirrors every gradient's stops.
   setToneAxisDirection: (direction: ToneAxisDirection) => void
   // Resize the shade scale (clamped to [MIN, MAX]); grows/trims from the end.
@@ -419,6 +425,13 @@ export const usePaletteStore = create<PaletteStore>()(
               stops: repositionAutoStops(k.stops, state.settings.toneAxisDirection, model),
             })),
           }
+        }),
+
+      setCollectionName: (name) =>
+        set((state) => {
+          const next = name.trim() === '' ? DEFAULT_COLLECTION_NAME : name.trim()
+          if (state.settings.collectionName === next) return {}
+          return { settings: { ...state.settings, collectionName: next } }
         }),
 
       // Flipping the tone direction mirrors every gradient (position -> 1 - pos),

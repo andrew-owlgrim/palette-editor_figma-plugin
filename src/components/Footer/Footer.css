@@ -1,0 +1,27 @@
+.footer {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 8px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--figma-color-border);
+  background-color: var(--figma-color-bg);
+}
+
+/* Three equal-width cells; each Button stretches to fill via fullWidth. */
+.footer > * {
+  flex: 1 1 0;
+  min-width: 0;
+
+  button {
+    height: 32px;
+  }
+}
+
+/* Just-exported flash: success fill on the inner <button>. The compound
+   `.footer button.flash` (0,2,1) outranks the DS `.secondary button` (0,2,0),
+   so no !important is needed. */
+.footer button.flash {
+  background-color: var(--figma-color-bg-success);
+  border-color: var(--figma-color-bg-success);
+  color: var(--figma-color-text-onbrand);
+}

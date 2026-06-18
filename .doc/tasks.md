@@ -1,9 +1,25 @@
 # Tasks
 
-Volatile working state. Last updated: 2026-06-17.
+Volatile working state. Last updated: 2026-06-18.
 
 ## Done
 
+- **Export — swatches / variables / styles** (ADR-024): `Footer` export bar.
+  `color/export.ts` `buildExportPalette` resolves the palette (names + per-step
+  hex, reusing the grid's samplers) and the UI `emit`s `EXPORT_SWATCHES` /
+  `CREATE_VARIABLES` / `CREATE_STYLES`; `main.ts` materializes them. Swatches = a
+  frame of 40×40 rects (8px gap), named `{name}-{step}`; variables = `{name}/{step}`
+  in the settings collection; styles = `{name}/{step}` (no collection); both update
+  in place by name. New `Settings.collectionName` (default "Palette") + a Textbox in
+  Settings. After a press each button flashes a "… created" label for a moment
+  (local `Footer` state), then reverts — repeatable, not disabled.
+- **Square picker for gradient stops** (ADR-023): `ColorPicker` gains a `surface`
+  prop. `StopCard` uses `surface="square"` — a canvas-sampled saturation/chroma ×
+  lightness/value `SquareField` + a hue `Gradient` slider, with the color's other
+  stops shown as reference dots (S/L dynamics along the ramp). Key-color cards keep
+  the hue wheel. Same model-agnostic `picker` axes, regrouped; field gamut-mapped
+  for all models incl. LCH. Plus a **`MAX_STOPS` = 7 cap** (`canAddStop`) — at the
+  cap an empty-track press no longer adds a stop.
 - **Gradient editor polish** (ADR-022): (1) **phantom-hue fix** — near-gray stops
   (micro-chroma that rounds to s=0 in the UI) had a definite hue that culori
   carried through the dark shades; `buildGradientSampler` now drops the hue of
@@ -76,7 +92,8 @@ Volatile working state. Last updated: 2026-06-17.
 
 ## Next up
 
-- **Export** — shade grid → Figma variables / styles / Copy CSS.
+- **Copy CSS** — shade grid → CSS custom properties on the clipboard (the
+  variables/styles/swatch canvas exports already ship — ADR-024).
 
 ## Backlog / ideas
 

@@ -49,7 +49,13 @@ spaces and keeping the result available to everyone editing the same file.
   the tailwind 1/1000 scale (0…1000): a count stepper (2–26, default 11), values
   evenly distributed by default, each editable — unset steps show their auto value
   as a placeholder, and a custom value re-distributes the unset steps around it.
-  The grid shows one row of swatches per key color (display-only for now).
+  The grid shows one row of swatches per key color.
+- **Gradient editor** — clicking a key color's swatch row expands an inline editor:
+  a gradient track with a draggable handle per stop (drag to move, press empty
+  track to add a stop, up to 7 total), and a card per stop to recolor it, pin or
+  auto-place its position, or delete it. A stop's color picker shows a
+  **saturation/lightness square + hue slider**, with the gradient's other stops
+  marked on the square so the tonal progression is visible.
 - **Settings popover** (gear icon, top-right):
   - **Input color model** — `HSL` / `HSV` / `LCH`. Switching it recomputes every
     key color's channel values into the new model.
@@ -57,6 +63,18 @@ spaces and keeping the result available to everyone editing the same file.
     gradient is interpolated in.
   - **Tone axis direction** — `Dark → Light` / `Light → Dark`. Which end of the
     shade scale (step 0) is light; flipping it mirrors every gradient.
+  - **Variable collection** — name of the Figma variable collection that **Create
+    variables** writes into (default "Palette").
+- **Export** (footer bar). Each button briefly confirms with a "… created" label
+  after a press, then reverts; all are repeatable:
+  - **Create variables** — writes every shade into the file's variables, named
+    `{name}/{step}`, in the collection from settings (created if missing; existing
+    same-named variables are updated in place).
+  - **Create styles** — same, as paint styles named `{name}/{step}` (no
+    collection).
+  - **Create swatches** — drops the palette on the canvas as a grid of 40×40
+    rectangles (8px gap, one row per key color), named `{name}-{step}`, wrapped in
+    a frame.
 - **Undo / redo** (top-left) — covers the whole palette document, including color
   edits and color-model switches.
 - **Per-file persistence** — changes are saved to the file automatically.
@@ -72,8 +90,7 @@ spaces and keeping the result available to everyone editing the same file.
 
 ## Planned / not yet built
 
-- Gradient editor — let the user move/add/recolor a key color's gradient stops
-  (the shade gradient is auto-derived for now).
-- Export: turn the shade grid into Figma variables / styles / CSS.
+- Copy CSS: the shade grid as CSS custom properties on the clipboard (the
+  variables/styles canvas exports already ship).
 
 See [tasks.md](tasks.md) for status and [architecture.md](architecture.md) for how it's built.

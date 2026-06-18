@@ -1,6 +1,7 @@
-import { SegmentedControl } from '@create-figma-plugin/ui'
+import { SegmentedControl, Textbox } from '@create-figma-plugin/ui'
 import type { SegmentedControlOption } from '@create-figma-plugin/ui'
-import { usePaletteStore } from '@/store'
+import { useState } from 'preact/hooks'
+import { DEFAULT_COLLECTION_NAME, usePaletteStore } from '@/store'
 import type { BlendingColorModel, InputColorModel, ToneAxisDirection } from '@/types'
 import styles from './SettingsPopover.css'
 
@@ -21,6 +22,33 @@ const TONE_AXIS_OPTIONS: Array<SegmentedControlOption> = [
   { value: 'dark-light', children: 'Dark → Light' },
   { value: 'light-dark', children: 'Light → Dark' },
 ]
+
+// Collection-name field. While focused it edits a local draft and commits on
+// blur (one undo step instead of one per keystroke); otherwise it shows the live
+// stored value, so an external change (e.g. undo) tracks. Empty reverts to the
+// default in the store. Mirrors NameInput's focused-draft idiom.
+function CollectionNameField() {
+  const collectionName = usePaletteStore((s) => s.settings.collectionName)
+  const setCollectionName = usePaletteStore((s) => s.setCollectionName)
+  const [draft, setDraft] = useState(collectionName)
+  const [focused, setFocused] = useState(false)
+
+  return (
+    <Textbox
+      value={focused ? draft : collectionName}
+      placeholder={DEFAULT_COLLECTION_NAME}
+      onFocus={() => {
+        setDraft(collectionName)
+        setFocused(true)
+      }}
+      onValueInput={setDraft}
+      onBlur={() => {
+        setFocused(false)
+        setCollectionName(draft)
+      }}
+    />
+  )
+}
 
 export function SettingsPopover() {
   const inputColorModel = usePaletteStore((s) => s.settings.inputColorModel)
@@ -61,6 +89,10 @@ export function SettingsPopover() {
             onValueChange={(value) => setToneAxisDirection(value as ToneAxisDirection)}
           />
         </div>
+      </div>
+      <div class={styles.field}>
+        <div class={styles.label}>Variable collection</div>
+        <CollectionNameField />
       </div>
     </div>
   )

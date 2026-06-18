@@ -4,20 +4,24 @@
   gap: 2px;
 }
 
+/* Mirrors StopCard's .positionInput: ghost by default (the DS textbox's filled
+   bg/border stripped), filled on hover, full DS textbox on focus — restyled on
+   the inner <input>. Centered, since it sits between the −/+ buttons. */
 .field {
-  width: 40px;
-  margin: 0;
-  padding: 4px 6px;
-  font-family: inherit;
-  font-size: 11px;
-  text-align: center;
-  color: var(--figma-color-text);
-  background-color: var(--figma-color-bg-secondary);
-  border: 1px solid var(--figma-color-border);
-  border-radius: 6px;
-  outline: none;
+  width: 44px;
 }
 
-.field:focus {
+.field input {
+  background-color: transparent;
+  border-color: transparent;
+  text-align: center;
+}
+
+.field input:hover {
+  background-color: var(--figma-color-bg-secondary);
+}
+
+.field input:focus {
+  background-color: var(--figma-color-bg-secondary);
   border-color: var(--figma-color-border-selected);
 }

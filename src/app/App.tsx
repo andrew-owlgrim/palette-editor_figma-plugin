@@ -1,5 +1,6 @@
 import { emit, on } from '@create-figma-plugin/utilities'
 import { useEffect } from 'preact/hooks'
+import { Footer } from '@/components/Footer/Footer'
 import { Header } from '@/components/Header/Header'
 import { KeyColorsSection } from '@/components/KeyColors/KeyColorsSection'
 import { ShadesSection } from '@/components/Shades/ShadesSection'
@@ -110,6 +111,7 @@ export function App({ initialDocument }: AppProps) {
         <KeyColorsSection />
         <ShadesSection />
       </div>
+      <Footer />
     </div>
   )
 }

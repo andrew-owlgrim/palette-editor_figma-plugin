@@ -340,3 +340,36 @@ Amends ADR-011/ADR-014.
   (the right side "saturates out" to its nearest in-gamut color) — the honest
   best-effort; the handle still reflects true C/L. RES (32) trades crispness for
   repaint cost (RES² culori conversions per hue tick); bump only if profiling allows.
+
+## ADR-024 — Export (swatches / variables / styles): UI resolves, main materializes
+
+- **Context:** the palette must leave the plugin three ways — a swatch grid on the
+  canvas, file **variables**, and file **paint styles**. All the color math
+  (gradient sampling, gamut mapping, name resolution) lives in the UI thread;
+  `figma.*` (nodes, variables, styles) lives only in `main.ts` (ADR-005/threads).
+- **Decision:** the UI computes a flat **`ExportPalette`** (`{ collectionName,
+  colors: [{ name, shades: [{ step, hex }] }] }`) via `color/export.ts`
+  `buildExportPalette`, reusing the *same* `resolveSteps` + per-color
+  `buildGradientSampler` + `colorToHex` + `resolveName` the swatch grid uses — so an
+  export always matches what's on screen. It `emit`s one of three handlers
+  (`EXPORT_SWATCHES` / `CREATE_VARIABLES` / `CREATE_STYLES`); `main.ts` turns the
+  payload into Figma objects (hex → `RGB` via `hexToRgb`). Names: swatches
+  `{name}-{step}` (rectangles), variables/styles `{name}/{step}` (the slash groups
+  them in Figma). Variables go in the settings **collection** (`Settings.collectionName`,
+  default `"Palette"`, created if missing); styles are flat (no collection).
+  Variables/styles are **updated in place by name** (look up existing, else create)
+  so re-export is idempotent, not duplicating. Swatches are wrapped in a frame
+  (named after the collection) laid out as a grid (`SWATCH_SIZE` 40, `SWATCH_GAP`
+  8; row = key color, col = shade), placed at the viewport center and selected.
+- **Button feedback:** after a press the button briefly swaps its label to a
+  confirmation ("Variables created" / "Styles created" / "Swatches created") for
+  `FEEDBACK_MS`, then reverts — local `Footer` state (one active flash + a timeout
+  ref), no store. The buttons are **not** disabled by export (export is repeatable);
+  they're disabled only when there are no key colors. Optimistic — no main→UI ack.
+  (Earlier draft disabled variables/styles until the palette next changed via an
+  ephemeral `store/export.ts`; replaced by the transient label so re-export stays
+  available.)
+- **Consequence/constraint:** export is a pure UI→main hand-off with no new color
+  logic on the main side, and stateless on the UI side beyond the transient flash.
+  Async variable/style APIs (`get*Async`) are used so the code is correct regardless
+  of a future `documentAccess: dynamic-page` switch.

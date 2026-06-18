@@ -30,7 +30,10 @@ main.ts  ──showUI(opts,{initialDocument})──▶  App (props)
    ▲                                            │
    ├──── on('SAVE_DOCUMENT') ◀── emit('SAVE_DOCUMENT', doc)        (debounced)
    ├──── on('REQUEST_SELECTION_FILLS') ◀── emit(...)               (once, on UI mount)
-   └──── emit('SELECTION_FILLS', { fills }) ──▶ on(...)            (selection / page change)
+   ├──── emit('SELECTION_FILLS', { fills }) ──▶ on(...)            (selection / page change)
+   ├──── on('EXPORT_SWATCHES') ◀── emit('EXPORT_SWATCHES', palette)    (Footer button)
+   ├──── on('CREATE_VARIABLES') ◀── emit('CREATE_VARIABLES', palette)  (Footer button)
+   └──── on('CREATE_STYLES') ◀── emit('CREATE_STYLES', palette)        (Footer button)
 ```
 
 ## Data model
@@ -63,6 +66,7 @@ interface Settings {
   inputColorModel: InputColorModel
   blendingColorModel: BlendingColorModel
   toneAxisDirection: ToneAxisDirection
+  collectionName: string   // target Figma variable collection (default "Palette")
 }
 // Shade scale: per-step target on the 0..1000 axis, null = auto. (ADR-021)
 interface ShadeScale { steps: Array<number | null> }
@@ -202,8 +206,9 @@ grid. `CountStepper` is −/+ `IconButton`s around a directly-editable field
   scroller child. `GradientEditor` paints the track via `buildGradientCss`, lays a
   draggable `Handle` per stop, and shares one `usePointerDrag` for the whole track:
   the first move decides whether it grabbed a stop (within `GRAB_PX`), hit a fixed
-  endpoint (no-op), or landed on empty track (`addStop` then drag the new id);
-  `begin/endLiveEdit` make the gesture one undo step. Below the track, one
+  endpoint (no-op), or landed on empty track (`addStop` then drag the new id —
+  unless the gradient is at the `MAX_STOPS` = 7 cap, where `canAddStop` makes it a
+  no-op); `begin/endLiveEdit` make the gesture one undo step. Below the track, one
   `StopCard` per stop (`flex: 1`, full-width) — swatch opens the shared
   `ColorPicker` for `(paletteColorId, stopId)`, a hover delete tile (hidden for
   endpoints/key via `canDeleteStop`), a position field, and an **"A"** button
@@ -253,7 +258,8 @@ rerolled color and reverts it to auto-name).
   `setKeyColorChannel` / `setKeyColorChannels` / `setKeyColorFromHex` (all set the
   key stop's color + reposition it by lightness; channels/hex re-derived).
 - `setInputColorModel` (re-derives channels from the key color), `setBlendingColorModel`,
-  `setToneAxisDirection` (mirrors every gradient's stops).
+  `setToneAxisDirection` (mirrors every gradient's stops),
+  `setCollectionName(name)` (empty reverts to the `"Palette"` default).
 - `setShadeCount(n)` (resize `shades.steps`, clamp `[2,26]`, grow/trim at the end),
   `setShadeStep(i, value | null)` (pin, clamped between set neighbors; null = auto).
 
@@ -318,13 +324,41 @@ Lets the user pull colors off the canvas into the palette.
 > (no such API); the browser `EyeDropper` API was rejected for runtime/iframe
 > uncertainty, so this selection-based flow replaced it.
 
+## Export — swatches / variables / styles (ADR-024)
+
+Three exports in the `Footer` bar. The split mirrors the thread model: the UI
+does all the color math, the main thread does all the `figma.*`.
+
+- **Resolve (UI):** `color/export.ts` `buildExportPalette(keyColors, shades,
+  blending, collectionName)` produces a flat `ExportPalette`
+  (`{ collectionName, colors: [{ name, shades: [{ step, hex }] }] }`), reusing the
+  *same* `resolveSteps` + per-color `buildGradientSampler` + `colorToHex` +
+  `resolveName` as the swatch grid — so an export equals what's on screen.
+- **Dispatch (UI):** `Footer` builds the payload on click and `emit`s one of
+  `EXPORT_SWATCHES` / `CREATE_VARIABLES` / `CREATE_STYLES`.
+- **Materialize (main):** `main.ts` converts each `hex` → `RGB` (`hexToRgb`) and:
+  - *swatches* — a frame (named after the collection) of 40×40 rectangles, 8px gap,
+    row = key color, col = shade, named `{name}-{step}`; placed at the viewport
+    center, selected + zoomed.
+  - *variables* — color variables named `{name}/{step}` in the settings collection
+    (`getLocalVariableCollectionsAsync`, created if missing); **updated in place by
+    name** (else created) so re-export is idempotent.
+  - *styles* — paint styles named `{name}/{step}` (no collection), same
+    update-in-place. Async APIs (`get*Async`) throughout, so it's correct under a
+    future `documentAccess: dynamic-page`.
+- **Button feedback:** after a press the button briefly swaps its label to
+  "Variables/Styles/Swatches created" (`FEEDBACK_MS`), then reverts — local `Footer`
+  state (one active flash + a timeout ref), no store. Export is repeatable, so the
+  buttons aren't disabled by it; they disable only with no key colors. Optimistic —
+  no main→UI ack.
+
 ## Component tree
 
 ```
 App (app/App.tsx)
 ├── Header                 undo/redo (left) · settings gear (right)
 │   └── Popover            custom anchored popover (outside-click + Esc)
-│       └── SettingsPopover  three SegmentedControls (input model / blending model / tone axis direction)
+│       └── SettingsPopover  three SegmentedControls (input/blending model · tone axis) + collection-name Textbox
 ├── KeyColorsSection       header: "+" add · add-matching (from selection) · card list
     │                       (auto-scrolls to reveal new card(s) on add)
     │                       wraps the list in DndContext + SortableContext
@@ -350,6 +384,7 @@ App (app/App.tsx)
     └── GradientEditor      injected under the active row (ADR-022): track w/ Handles + StopCards
         ├── Handle          one per stop on the track (drag to move; press empty = add)
         └── StopCard        full-width per stop: ColorSample → ColorPicker (surface=square) · "A" auto toggle · trash (hover)
+└── Footer                 export bar: Create variables (primary) · Create styles · Create swatches (ADR-024)
 ```
 
 - Picker geometry + channel↔axis mapping: `src/color/picker.ts`. Drag binding:
@@ -363,6 +398,17 @@ App (app/App.tsx)
   model's own hue scale — LCH hue ≠ HSL hue). All display hex goes through
   gamut mapping (`colorToHex`/`channelsToHex` → `toGamut('rgb','oklch')`), so
   out-of-sRGB colors reduce chroma toward gray instead of clamping to over-bright.
+- **Two picker surfaces (ADR-023):** `ColorPicker`'s `surface` prop swaps the 2D
+  control. `wheel` (key colors) = polar `angle`+`radius` ring + a `Gradient` slider
+  on the `axis`, dots = other key colors. `square` (gradient stops, `StopCard`
+  passes it) = the inverse pairing: a cartesian `radius`×`axis` `SquareField` + a
+  `Gradient` slider on the hue, dots = other stops of the same color. Same three
+  `picker` roles, regrouped — helpers `channelsToSquare`/`squareToChannels`/
+  `squareColorAt`/`channelsToHue01`/`hue01ToChannel`/`buildHueSliderGradient` in
+  `picker.ts`. `SquareField` sample-paints a 32×32 `<canvas>` (`squareColorAt` per
+  cell, gamut-mapped, CSS-smoothed; repaints only on hue/model change), so the
+  field is truthful for every model incl. LCH (its out-of-gamut C×L region
+  saturates out to the nearest in-gamut color).
 - **Card vs picker:** the card shows only the swatch + a borderless ("ghost")
   name field (`NameInput`); the action row (white bordered tiles: eyedropper when
   the selection has a fill, trash) is revealed on card hover. All channel editing
