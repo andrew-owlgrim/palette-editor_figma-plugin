@@ -130,13 +130,17 @@ Amends the persistence note in ADR-013.
 
 - **Context:** "new color N" is noise; names should follow the color yet stay put
   once a user renames.
-- **Decision:** `customName: string | null`; effective name
-  `customName ?? autoName(color)` derived on read (auto name never stored). Match
-  nearest sRGB over a vendored ~1.5k *Name that Color* list (CC BY 2.5) — chosen
-  over a larger list / online API. Persist `customName` only; migrate legacy
-  `name`.
+- **Decision:** effective name derived on read via `resolveName` (auto name never
+  stored). Match nearest sRGB over a vendored ~1.5k *Name that Color* list
+  (CC BY 2.5) — chosen over a larger list / online API. Migrate legacy `name`.
 - **Consequence:** names can't drift from the color; ~40 KB list in the bundle;
   duplicate auto names possible (export-time dedupe deferred).
+- **Amended:** the implicit `customName: string | null` (null = auto) became an
+  explicit `{ customName: string, autoName: boolean }` pair — mirroring a stop's
+  `{ position, autoPosition }` so the UI can show the same auto/manual toggle
+  ("A"), read-only-when-auto field, and preserve a typed name across toggles.
+  `autoName` is persisted (migrated: auto iff no name was set); empty manual edit
+  reverts to auto.
 
 ## ADR-016 — Canvas selection fills (eyedropper, add-matching)
 

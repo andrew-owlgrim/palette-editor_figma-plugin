@@ -53,9 +53,10 @@ interface GradientStop {
 }
 
 // A named color "ramp": a shade gradient whose `keyStopId` stop is the seed the
-// user picks/names ("the key color"). `customName` null = auto-named. (ADR-020)
+// user picks/names ("the key color"). `autoName` mirrors a stop's `autoPosition`:
+// true = name derived from the color, false = use `customName`. (ADR-020, ADR-015)
 interface PaletteColor {
-  id: string; customName: string | null
+  id: string; customName: string; autoName: boolean
   stops: GradientStop[]; keyStopId: string
 }
 interface Settings {
@@ -68,11 +69,12 @@ interface ShadeScale { steps: Array<number | null> }
 interface PaletteDocument { keyColors: PaletteColor[]; settings: Settings; shades: ShadeScale }
 
 // Persisted shape: gradient `stops` (incl. `autoPosition`) + `keyStopId` +
-// `customName` + `shades`; per-stop `channels`/auto names re-derived on load.
-// Loose to tolerate older files (pre-gradient carry a single `color`/`channels`;
-// pre-`customName` carry `name`; pre-editor omit `autoPosition` → defaults true).
+// `customName`/`autoName` + `shades`; per-stop `channels`/auto names re-derived on
+// load. Loose to tolerate older files (pre-gradient carry a single `color`/
+// `channels`; pre-`customName` carry `name`; pre-`autoName` → auto iff no name set;
+// pre-editor omit `autoPosition` → defaults true).
 interface PersistedPaletteColor {
-  id: string; customName?: string | null; name?: string
+  id: string; customName?: string | null; autoName?: boolean; name?: string
   keyStopId?: string
   stops?: { id: string; position: number; color: Color; autoPosition?: boolean }[]
   color?: Color; channels?: ColorChannels   // legacy single-color form
@@ -91,8 +93,10 @@ UI and `channels` derive from the stop's color. `channels` are strings (not
 numbers) on purpose: they keep exactly what the user typed and tolerate mid-edit
 states.
 
-**Name** is `customName` (user-pinned) or, when `null`, an auto name derived from
-the key stop's color — effective name = `resolveName(pc)` (see Auto color naming).
+**Name** is `customName` (user-pinned) or, when `autoName`, an auto name derived
+from the key stop's color — effective name = `resolveName(pc)` (see Auto color
+naming). The card surfaces this with the same auto/manual "A" toggle as a stop's
+position (read-only + muted when auto).
 
 **Shade gradient (ADR-020/021/022):** a `PaletteColor` *is* its gradient — the key
 color is one stop. By default the gradient runs from a **near-black**
@@ -145,13 +149,16 @@ export-ready by default.
 - **Match:** `autoName(color)` — nearest entry by Euclidean distance in sRGB,
   compared against the **displayed** (gamut-mapped) hex so the name agrees with
   the swatch. The list's RGB is precomputed once at module load.
-- **Effective name:** `resolveName(keyColor) = customName ?? autoName(color)` —
-  derive-on-read; the auto name is never stored, so it follows the color for free
-  and a model switch leaves it untouched. `customName: null` = auto.
-- **`NameInput`** (`components/NameInput`) edits a draft and commits on blur/Enter:
-  empty → `setKeyColorName(id, null)` (back to auto, re-appears immediately);
-  non-empty → pins it. Escape cancels. While not focused it shows `value`, so the
-  auto name updates live.
+- **Effective name:** `resolveName(keyColor)` = the auto name when `autoName` (or
+  the custom name is blank), else `customName` — derive-on-read; the auto name is
+  never stored, so it follows the color for free and a model switch leaves it
+  untouched.
+- **`NameInput`** (`components/NameInput`) is read-only + muted when auto; when
+  manual it edits a draft and commits on blur/Enter (empty → `setKeyColorName`
+  reverts to auto; non-empty → pins it), Escape cancels. Name fields do NOT
+  select-on-focus (unlike the numeric position field). The `AutoToggle` ("A")
+  beside it calls `setKeyColorNameAuto`; on→off seeds `customName` from the current
+  auto name. While not focused it shows `value`, so the auto name updates live.
 
 ## Shade gradient + scale — `src/color/gradient.ts` + `src/color/shades.ts`
 
@@ -237,7 +244,9 @@ rerolled color and reverts it to auto-name).
   `rerollKeyColor(id)` (rebuild a fresh harmonious default gradient, auto-named),
   `removeKeyColor`, `moveKeyColor(fromId, toId)` (reorder via `arrayMove`, used
   by drag-and-drop — one update = one undo step),
-  `setKeyColorName(id, name | null)` (pin a custom name, or null = auto),
+  `setKeyColorName(id, name)` (pin a custom name; empty reverts to auto),
+  `setKeyColorNameAuto(id, auto)` (toggle auto-naming; seeds the custom name when
+  going manual),
   `setKeyColorChannel` / `setKeyColorChannels` / `setKeyColorFromHex` (all set the
   key stop's color + reposition it by lightness; channels/hex re-derived).
 - `setInputColorModel` (re-derives channels from the key color), `setBlendingColorModel`,
@@ -275,8 +284,9 @@ Per-file, **load-on-open + save-on-change** (no live concurrent multi-user sync)
   baseline. This happens **before** the save subscription is attached, so the
   hydration is neither saved back (no echo) nor added to history.
 - **Save:** `App` subscribes to the store, debounced 400 ms, and
-  `emit('SAVE_DOCUMENT', …)` with key colors stripped to `{ id, customName, color }`
-  (channels and auto names are re-derived on load). `main.ts` writes it with
+  `emit('SAVE_DOCUMENT', …)` with key colors stripped to
+  `{ id, customName, autoName, keyStopId, stops }` (channels and the resolved auto
+  name are re-derived on load). `main.ts` writes it with
   `figma.root.setSharedPluginData`.
 
 `storage.ts` also has `clientStorage` (per-user) wrappers, currently unused —

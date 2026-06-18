@@ -1,0 +1,28 @@
+/* Auto/manual toggle: "A" glyph. Ghost + muted by default; brand glyph on a
+   faint brand wash when the governed value is auto-derived. */
+.button {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--figma-color-text-secondary);
+  background-color: transparent;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.button:hover {
+  background-color: var(--figma-color-bg-hover);
+}
+
+.active,
+.active:hover {
+  color: var(--figma-color-text-brand);
+  background-color: color-mix(in srgb, var(--figma-color-bg-brand) 12%, transparent);
+}

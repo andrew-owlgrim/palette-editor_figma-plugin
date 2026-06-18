@@ -39,8 +39,12 @@ export function autoName(color: Color): string {
   return best.name
 }
 
-// Effective display/export name: a user-set custom name, or the auto name
-// derived from the key stop's color when none is set.
+// Effective display/export name: the user's custom name, or the auto name derived
+// from the key stop's color when `autoName` is set (or no custom name is stored,
+// so an emptied manual field never yields a nameless color).
 export function resolveName(paletteColor: PaletteColor): string {
-  return paletteColor.customName ?? autoName(keyColorOf(paletteColor))
+  if (paletteColor.autoName || paletteColor.customName.trim() === '') {
+    return autoName(keyColorOf(paletteColor))
+  }
+  return paletteColor.customName
 }

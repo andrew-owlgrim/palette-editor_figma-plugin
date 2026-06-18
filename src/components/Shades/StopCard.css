@@ -105,31 +105,3 @@
   border-color: transparent;
   color: var(--figma-color-text-secondary);
 }
-
-/* Auto-position toggle: "A" glyph. Ghost + muted by default; brand glyph on a
-   faint brand wash when the stop's position is auto-derived. */
-.auto {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  font-size: 11px;
-  font-weight: 600;
-  color: var(--figma-color-text-secondary);
-  background-color: transparent;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-}
-
-.auto:hover {
-  background-color: var(--figma-color-bg-hover);
-}
-
-.autoActive,
-.autoActive:hover {
-  color: var(--figma-color-text-brand);
-  background-color: color-mix(in srgb, var(--figma-color-bg-brand) 12%, transparent);
-}

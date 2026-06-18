@@ -40,9 +40,10 @@ export function App({ initialDocument }: AppProps) {
         emit<SaveDocumentHandler>('SAVE_DOCUMENT', {
           // Persist the gradient (stops + keyStopId) + custom name; channels and
           // auto names are re-derived on load.
-          keyColors: state.keyColors.map(({ id, customName, keyStopId, stops }) => ({
+          keyColors: state.keyColors.map(({ id, customName, autoName, keyStopId, stops }) => ({
             id,
             customName,
+            autoName,
             keyStopId,
             stops: stops.map(({ id, position, color, autoPosition }) => ({
               id,

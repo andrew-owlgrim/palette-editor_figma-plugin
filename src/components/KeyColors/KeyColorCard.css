@@ -65,5 +65,8 @@
 }
 
 .footer {
+  display: flex;
+  align-items: center;
+  gap: 4px;
   padding: 6px 8px 8px;
 }

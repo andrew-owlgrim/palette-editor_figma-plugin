@@ -1,6 +1,8 @@
-/* Ghost text field: borderless at rest, border revealed on hover/focus. */
+/* Ghost text field: borderless at rest, border revealed on hover/focus. Flexes
+   to fill the footer beside the auto-name toggle. */
 .input {
-  width: 100%;
+  flex: 1 1 0;
+  min-width: 0;
   margin: 0;
   padding: 4px 6px;
   font-family: inherit;
@@ -21,4 +23,14 @@
 
 .input:focus {
   border-color: var(--figma-color-border-selected);
+}
+
+/* Auto: read-only, muted — the name follows the color (no hover/focus affordance,
+   matching the stop position's auto state). */
+.auto,
+.auto:hover,
+.auto:focus {
+  color: var(--figma-color-text-secondary);
+  border-color: transparent;
+  cursor: default;
 }

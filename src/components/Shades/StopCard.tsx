@@ -1,5 +1,6 @@
 import { IconButton, IconTrash24, TextboxNumeric } from '@create-figma-plugin/ui'
-import { useRef, useState } from 'preact/hooks'
+import { useEffect, useRef, useState } from 'preact/hooks'
+import { AutoToggle } from '@/components/AutoToggle/AutoToggle'
 import { ColorSample } from '@/components/ColorSample/ColorSample'
 import { ColorPicker } from '@/components/ColorPicker/ColorPicker'
 import { Popover } from '@/components/Popover/Popover'
@@ -35,6 +36,7 @@ function PositionField({
   const stored = `${percent}%`
   const [draft, setDraft] = useState(String(percent))
   const [focused, setFocused] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   function commit() {
     setFocused(false)
@@ -42,10 +44,18 @@ function PositionField({
     if (Number.isFinite(parsed)) onCommit(Math.min(100, Math.max(0, parsed)))
   }
 
+  // Select the value on focus. The DS textbox selects on focus too, but our
+  // focus-driven value change (`51%` → `51`) re-renders and clears it, so re-
+  // select once the bare number is committed to the input.
+  useEffect(() => {
+    if (focused) inputRef.current?.select()
+  }, [focused])
+
   const fieldClass = auto ? `${styles.positionInput} ${styles.positionAuto}` : styles.positionInput
   return (
     <div class={fieldClass}>
       <TextboxNumeric
+        ref={inputRef}
         value={focused ? draft : stored}
         disabled={auto}
         minimum={0}
@@ -77,7 +87,6 @@ export function StopCard({ paletteColorId, stop, isKey, canDelete }: StopCardPro
 
   const hex = colorToHex(stop.color)
   const percent = Math.round(stop.position * 100)
-  const autoClass = stop.autoPosition ? `${styles.auto} ${styles.autoActive}` : styles.auto
 
   return (
     <div class={styles.card}>
@@ -114,16 +123,13 @@ export function StopCard({ paletteColorId, stop, isKey, canDelete }: StopCardPro
           auto={stop.autoPosition}
           onCommit={(pct) => setStopPosition(paletteColorId, stop.id, pct / 100)}
         />
-        <Tooltip content={stop.autoPosition ? 'Auto position' : 'Manual position'}>
-          <button
-            type="button"
-            class={autoClass}
-            onClick={() => setStopAutoPosition(paletteColorId, stop.id, !stop.autoPosition)}
-            aria-label="Toggle auto position"
-          >
-            A
-          </button>
-        </Tooltip>
+        <AutoToggle
+          active={stop.autoPosition}
+          onToggle={(auto) => setStopAutoPosition(paletteColorId, stop.id, auto)}
+          activeLabel="Auto position"
+          inactiveLabel="Manual position"
+          ariaLabel="Toggle auto position"
+        />
       </div>
     </div>
   )

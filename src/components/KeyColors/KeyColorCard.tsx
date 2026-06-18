@@ -4,6 +4,7 @@ import type { JSX } from 'preact'
 import { useSortable } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import { IconDice24 } from '@/components/icons/IconDice24'
+import { AutoToggle } from '@/components/AutoToggle/AutoToggle'
 import { ColorPicker } from '@/components/ColorPicker/ColorPicker'
 import { ColorSample } from '@/components/ColorSample/ColorSample'
 import { NameInput } from '@/components/NameInput/NameInput'
@@ -25,6 +26,7 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
   const removeKeyColor = usePaletteStore((s) => s.removeKeyColor)
   const rerollKeyColor = usePaletteStore((s) => s.rerollKeyColor)
   const setKeyColorName = usePaletteStore((s) => s.setKeyColorName)
+  const setKeyColorNameAuto = usePaletteStore((s) => s.setKeyColorNameAuto)
   const setStopFromHex = usePaletteStore((s) => s.setStopFromHex)
   const selectionFills = useSelectionStore((s) => s.fills)
 
@@ -102,7 +104,15 @@ export function KeyColorCard({ keyColor }: KeyColorCardProps) {
       <div class={styles.footer} onPointerDown={(event) => event.stopPropagation()}>
         <NameInput
           value={resolveName(keyColor)}
+          auto={keyColor.autoName}
           onCommit={(name) => setKeyColorName(keyColor.id, name)}
+        />
+        <AutoToggle
+          active={keyColor.autoName}
+          onToggle={(auto) => setKeyColorNameAuto(keyColor.id, auto)}
+          activeLabel="Auto name"
+          inactiveLabel="Manual name"
+          ariaLabel="Toggle auto name"
         />
       </div>
     </div>

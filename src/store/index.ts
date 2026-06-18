@@ -15,6 +15,7 @@ import type {
   ToneAxisDirection,
 } from '@/types'
 import { channelsToColor, colorToChannels, hexToColor } from '@/color/models'
+import { autoName } from '@/color/naming'
 import { harmoniousColor } from '@/color/harmony'
 import {
   addStop as addStopToGradient,
@@ -61,7 +62,7 @@ function makePaletteColor(
   blending: BlendingColorModel,
 ): PaletteColor {
   const { stops, keyStopId } = buildDefaultStops(color, direction, blending, model)
-  return { id: newId(), customName: null, stops, keyStopId }
+  return { id: newId(), customName: '', autoName: true, stops, keyStopId }
 }
 
 // Build a runtime palette color from a persisted one. The gradient `stops` +
@@ -75,7 +76,11 @@ function normalizePaletteColor(
   direction: ToneAxisDirection,
   blending: BlendingColorModel,
 ): PaletteColor {
-  const customName = k.customName !== undefined ? k.customName : (k.name ?? null)
+  // Custom name: prefer `customName`, fall back to the legacy `name`; coerce a
+  // legacy `null` to ''. Auto iff explicitly flagged, else iff no name was set.
+  const rawName = k.customName !== undefined ? k.customName : (k.name ?? null)
+  const customName = typeof rawName === 'string' ? rawName : ''
+  const autoName = k.autoName ?? customName.trim() === ''
 
   if (k.stops !== undefined && k.stops.length > 0 && k.keyStopId !== undefined) {
     // Derive each stop's channel buffer; default missing `autoPosition` to true
@@ -93,12 +98,12 @@ function normalizePaletteColor(
       model,
     )
     const keyStopId = stops.some((s) => s.id === k.keyStopId) ? k.keyStopId : stops[0].id
-    return { id: k.id, customName, stops, keyStopId }
+    return { id: k.id, customName, autoName, stops, keyStopId }
   }
 
   const color = k.color ?? channelsToColor(k.channels ?? {}, model)
   const { stops, keyStopId } = buildDefaultStops(color, direction, blending, model)
-  return { id: k.id, customName, stops, keyStopId }
+  return { id: k.id, customName, autoName, stops, keyStopId }
 }
 
 interface PaletteActions {
@@ -111,8 +116,11 @@ interface PaletteActions {
   // Reorder: move the key color `fromId` to the slot currently held by `toId`
   // (the DnD over-target). One update = one undo step / one save.
   moveKeyColor: (fromId: string, toId: string) => void
-  // null = revert to auto-naming; a string = pin a custom name.
-  setKeyColorName: (id: string, name: string | null) => void
+  // Pin a custom name (switches to manual); an empty string reverts to auto.
+  setKeyColorName: (id: string, name: string) => void
+  // Toggle auto-naming (the "A" button). On→off seeds the custom name from the
+  // current auto name if none was typed, so the field starts populated.
+  setKeyColorNameAuto: (id: string, auto: boolean) => void
   // Color edits target a specific stop (the key stop or any gradient stop).
   setStopChannel: (pcId: string, stopId: string, channelId: string, value: string) => void
   setStopChannels: (pcId: string, stopId: string, channels: ColorChannels) => void
@@ -213,7 +221,7 @@ export const usePaletteStore = create<PaletteStore>()(
           )
           return {
             keyColors: state.keyColors.map((k) =>
-              k.id === id ? { ...k, stops, keyStopId, customName: null } : k,
+              k.id === id ? { ...k, stops, keyStopId, customName: '', autoName: true } : k,
             ),
           }
         }),
@@ -229,9 +237,24 @@ export const usePaletteStore = create<PaletteStore>()(
           return { keyColors: arrayMove(state.keyColors, from, to) }
         }),
 
+      // A manual edit pins the typed name; clearing it (empty) reverts to auto.
       setKeyColorName: (id, name) =>
         set((state) => ({
-          keyColors: state.keyColors.map((k) => (k.id === id ? { ...k, customName: name } : k)),
+          keyColors: state.keyColors.map((k) =>
+            k.id === id ? { ...k, customName: name, autoName: name.trim() === '' } : k,
+          ),
+        })),
+
+      setKeyColorNameAuto: (id, auto) =>
+        set((state) => ({
+          keyColors: state.keyColors.map((k) => {
+            if (k.id !== id) return k
+            // Going manual: seed from the current auto name when nothing's typed,
+            // so the field opens populated (mirrors freezing a stop's position).
+            const customName =
+              auto || k.customName.trim() !== '' ? k.customName : autoName(keyColorOf(k))
+            return { ...k, autoName: auto, customName }
+          }),
         })),
 
       // A channel edit updates the targeted stop's typed buffer and recomputes

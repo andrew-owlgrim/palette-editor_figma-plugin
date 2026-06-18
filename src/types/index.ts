@@ -39,9 +39,14 @@ export interface GradientStop {
 // lightness; the gradient editor (ADR-022) lets the user move/add/recolor stops.
 export interface PaletteColor {
   id: string
-  // User-set name, or `null` for auto-naming from the key stop's color (nearest
-  // named color via color/naming.ts). Effective name = `resolveName(pc)`.
-  customName: string | null
+  // User-typed name (`''` when never set). Always stored, even while auto, so a
+  // typed name survives toggling auto off→on→off (mirrors a stop's pinned
+  // `position` surviving `autoPosition`). (ADR-020)
+  customName: string
+  // `true` (default) = name is auto-derived from the key stop's color (nearest
+  // named color via color/naming.ts) and follows it on every edit; `false` =
+  // the user's `customName` is used. Effective name = `resolveName(pc)`.
+  autoName: boolean
   // Sorted by position; endpoints at 0 and 1. Each stop carries its own derived
   // `channels` buffer (see GradientStop).
   stops: GradientStop[]
@@ -73,7 +78,8 @@ export interface PaletteDocument {
 // the source of truth; `channels` and auto names are re-derived on load. Fields
 // are loose to tolerate older files — see the hydrate migration:
 //   - pre-gradient files carry a single `color` (or even older `channels`),
-//   - pre-`customName` files carry a plain `name`.
+//   - pre-`customName` files carry a plain `name`,
+//   - pre-`autoName` files: auto-named iff no custom/legacy name was set.
 export interface PersistedGradientStop {
   id: string
   position: number
@@ -85,6 +91,8 @@ export interface PersistedGradientStop {
 export interface PersistedPaletteColor {
   id: string
   customName?: string | null
+  // Omitted by pre-`autoName` files; derived from whether a name was set on load.
+  autoName?: boolean
   name?: string
   keyStopId?: string
   stops?: PersistedGradientStop[]
