@@ -4,6 +4,14 @@ Volatile working state. Last updated: 2026-06-17.
 
 ## Done
 
+- **Gradient editor polish** (ADR-022): (1) **phantom-hue fix** — near-gray stops
+  (micro-chroma that rounds to s=0 in the UI) had a definite hue that culori
+  carried through the dark shades; `buildGradientSampler` now drops the hue of
+  achromatic stops (rgb max−min < `ACHROMATIC_EPS`) so the chromatic neighbor's
+  hue carries instead. (2) **auto position normalized** to the gradient's real
+  span `[DARK_ENDPOINT_L, 1]` so a color as dark as the dark endpoint maps to the
+  end, not a gap. (3) **manual position is an editable %** — `StopCard` swaps the
+  static label for a numeric `TextboxNumeric` when `autoPosition` is false.
 - **Gradient editor** (ADR-022): clickable Shades rows inject a full-width
   `GradientEditor` under the active row — track with a draggable `Handle` per
   stop (press empty = add, press near an endpoint = no-op), full-width `StopCard`
@@ -68,9 +76,6 @@ Volatile working state. Last updated: 2026-06-17.
 
 ## Next up
 
-- **Fix Hue on gradients** — Currently, dark color creates with 171 hue. Values interpolates to this value in shades causing hue shift. Probably there is micro fluctuation causing extremely low satureation value that don't display in UI when values rounded, but it still affects the interpolation.
-- **Dark Endpoint Lightness** should also affect automatic position calculations on gradient.
-- **Position percents** should turn into numeric textbox input when the value is not automatic.
 - **Export** — shade grid → Figma variables / styles / Copy CSS.
 
 ## Backlog / ideas

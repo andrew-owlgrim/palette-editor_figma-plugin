@@ -99,7 +99,9 @@ color is one stop. By default the gradient runs from a **near-black**
 (`DARK_ENDPOINT_L` ≈ OKLab L 0.15, not pure black — cuts the indistinguishable
 dark zone) to white, with the key color placed between them at its lightness; the
 two endpoints are **pinned** at the scale ends (manual), only the key stop is
-auto. `toneAxisDirection` sets which endpoint is at position 0. A stop's `position` is auto-derived from its
+auto. `toneAxisDirection` sets which endpoint is at position 0. Auto positions are
+normalized to the gradient's real lightness span `[DARK_ENDPOINT_L, 1]`, so a
+color as dark as the dark endpoint lands at the end rather than leaving a gap. A stop's `position` is auto-derived from its
 color's lightness **in the active blending model** (`modelLightness`: rgb/hsl →
 HSL L, oklch → OKLab L, lch → CIE L\*) while `autoPosition` is true (the default),
 and frozen once the user drags it / toggles "A" off in the gradient editor
@@ -165,7 +167,8 @@ change), `canDeleteStop` (endpoints + key stop are protected), `rederiveChannels
 `buildGradientCss` (sampled CSS gradient for the editor track), and
 `buildGradientSampler(stops, blending)` — a `u→Color` sampler via culori
 `interpolate` over the stops' `[color, position]` tuples in the blending mode
-(build once per row, sample per step). `shades.ts` owns the 0..1000 scale
+(build once per row, sample per step); it drops the hue of near-gray stops
+(`isAchromatic`) so a phantom micro-chroma hue can't tint the ramp. `shades.ts` owns the 0..1000 scale
 (ADR-021): `resolveSteps` (fill `null`
 autos by even index-distribution between set anchors / the 0&1000 edges),
 `clampStepValue` (keep a typed value between its set neighbors), and the
@@ -194,8 +197,9 @@ grid. `CountStepper` is −/+ `IconButton`s around a directly-editable field
   `begin/endLiveEdit` make the gesture one undo step. Below the track, one
   `StopCard` per stop (`flex: 1`, full-width) — swatch opens the shared
   `ColorPicker` for `(paletteColorId, stopId)`, a hover delete tile (hidden for
-  endpoints/key via `canDeleteStop`), a position-% label, and an **"A"** button
-  toggling `autoPosition` (brand-filled when auto).
+  endpoints/key via `canDeleteStop`), a position field, and an **"A"** button
+  toggling `autoPosition` (brand-filled when auto). The position is a static `%`
+  label while auto, and an editable numeric `%` `TextboxNumeric` when manual.
 
 - **`StopInput` is a controlled-input gotcha (learned the hard way):** the DS
   `RawTextboxNumeric` renders `value` verbatim and reports edits as an already-

@@ -294,6 +294,13 @@ Delivers the editor ADR-020 was built toward. Amends ADR-020: the runtime
   to cut the perceptually-indistinguishable bottom OKLab range off the ramp. The
   two endpoints are **pinned** (manual) at the scale ends so the dark one anchors
   at 0/1 rather than drifting to its own lightness; only the key stop is auto.
+  Auto positions are normalized to the gradient's real span `[DARK_ENDPOINT_L, 1]`
+  (not `[0, 1]`), so a color as dark as the dark endpoint maps to the end, not a gap.
+- **Phantom-hue guard:** a near-gray stop's leftover micro-chroma (a saturation
+  that rounds to 0 in the UI) still carries a definite hue, which culori would
+  interpolate *toward* — tinting the dark shades. `buildGradientSampler` drops the
+  hue (sets it undefined) of any stop that is achromatic in rgb (`max−min <
+  ACHROMATIC_EPS`), so the adjacent chromatic stop's hue carries across it instead.
 - **Delete guard:** `canDeleteStop` blocks the two endpoints and the key stop.
 - **Consequence:** the gradient is now fully editable; persisted payload gains
   `autoPosition` per stop (defaults to `true` for older files). Tradeoff: the

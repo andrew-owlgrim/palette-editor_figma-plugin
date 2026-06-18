@@ -72,13 +72,20 @@ export function modelLightness(color: Color, blending: BlendingColorModel): numb
 // light-dark puts a light color near step 0, dark-light reverses it. Used for
 // every stop whose `autoPosition` is true (the default), so its position follows
 // its color in the active blending model's lightness.
+//
+// The lightness is normalized to the gradient's actual span [DARK_ENDPOINT_L, 1]
+// (not [0, 1]): the dark end is a near-black, not pure black, so a color as dark
+// as the dark endpoint maps to the very end (0) rather than leaving a gap.
 export function keyStopPosition(
   color: Color,
   direction: ToneAxisDirection,
   blending: BlendingColorModel,
 ): number {
-  const l = modelLightness(color, blending)
-  return clamp01(direction === 'light-dark' ? 1 - l : l)
+  const lo = modelLightness(DARK, blending)
+  const span = 1 - lo
+  const raw = span <= 0 ? 0 : (modelLightness(color, blending) - lo) / span
+  const n = clamp01(raw)
+  return clamp01(direction === 'light-dark' ? 1 - n : n)
 }
 
 // Build a stop with its derived channel buffer. `autoPosition` stops get their
@@ -240,23 +247,44 @@ export function mirrorStops(stops: GradientStop[]): GradientStop[] {
   return sortStops(stops.map((s) => ({ ...s, position: clamp01(1 - s.position) })))
 }
 
+// A tint this faint (rgb max−min, ~3/255) reads as gray and rounds to 0 in the UI
+// channels — but its leftover micro-chroma still carries a definite hue. We treat
+// such stops as truly achromatic when blending so a phantom hue can't tint the
+// ramp.
+const ACHROMATIC_EPS = 0.012
+
+function isAchromatic(color: Color): boolean {
+  const c = toRgb(color)
+  return Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b) < ACHROMATIC_EPS
+}
+
 // Build a sampler `(u: 0..1) -> Color` over the gradient, blending adjacent stops
 // in the configured color model. culori interpolate takes the stop positions
 // directly as `[color, position]` tuples (non-uniform domain). Build once per
 // palette color, then sample at each shade step.
+//
+// Near-gray stops get their hue dropped (set undefined) so culori carries the
+// adjacent chromatic stop's hue across them instead of interpolating toward a
+// phantom hue — otherwise an imperceptible micro-chroma shifts the dark shades.
 export function buildGradientSampler(
   stops: GradientStop[],
   blending: BlendingColorModel,
 ): (u: number) => Color {
+  const mode = BLENDING_MODE[blending]
   const sorted = sortStops(stops)
   if (sorted.length === 1) {
     const only = sorted[0].color
     return () => only
   }
-  const fn = interpolate(
-    sorted.map((s) => [s.color, s.position] as [Color, number]),
-    BLENDING_MODE[blending],
-  )
+  const toMode = converter(mode)
+  const points = sorted.map((s) => {
+    const color = toMode(s.color)
+    if (mode !== 'rgb' && isAchromatic(s.color)) {
+      return [{ ...color, h: undefined }, s.position] as [Color, number]
+    }
+    return [color as Color, s.position] as [Color, number]
+  })
+  const fn = interpolate(points, mode)
   return (u: number) => fn(clamp01(u)) as Color
 }
 

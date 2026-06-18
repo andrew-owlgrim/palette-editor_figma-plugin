@@ -73,6 +73,11 @@
   color: var(--figma-color-text);
 }
 
+/* Compact numeric % field shown for manual stops (replaces the static label). */
+.positionInput {
+  width: 52px;
+}
+
 /* Auto-position toggle: "A" glyph, highlighted (brand) when the stop's position
    is auto-derived, muted when the user has pinned it. */
 .auto {
