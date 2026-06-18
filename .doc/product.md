@@ -43,6 +43,13 @@ spaces and keeping the result available to everyone editing the same file.
   an **add-matching** button (next to "+") appends every selected fill as new key
   colors. (Figma's native eyedropper isn't available to plugins, so this works off
   the selection instead.)
+- **Extract colors from an image** — an image button in the Key colors header
+  opens a window where you drop, paste, upload, or link an image; the plugin pulls
+  its dominant colors (k-means clustering). A full-area view shows the image beside
+  a grid of the extracted swatches — choose how many to pull (a stepper), click
+  swatches to include/exclude them, and add the selected ones as key colors. Pasted
+  or linked URLs are best-effort (some image hosts block off-site reads — drop or
+  upload the file instead).
 - **Shades** — a tonal scale generated for every key color. Each key color is a
   gradient (near-black & white ends with the key color placed by its lightness);
   shades are sampled along it in the **blending color model**. A row of step inputs uses
@@ -73,7 +80,7 @@ spaces and keeping the result available to everyone editing the same file.
   - **Create styles** — same, as paint styles named `{name}/{step}` (no
     collection).
   - **Create swatches** — drops the palette on the canvas as a grid of 40×40
-    rectangles (8px gap, one row per key color), named `{name}-{step}`, wrapped in
+    rectangles (8px gap, one row per key color), named `{name}/{step}`, wrapped in
     a frame.
 - **Undo / redo** (top-left) — covers the whole palette document, including color
   edits and color-model switches.

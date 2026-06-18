@@ -1,16 +1,1 @@
-{
-  "api": "1.0.0",
-  "editorType": [
-    "figma"
-  ],
-  "id": "",
-  "name": "My Colors",
-  "main": "build/main.js",
-  "ui": "build/ui.js",
-  "networkAccess": {
-    "allowedDomains": [
-      "*"
-    ],
-    "reasoning": "Fetch user-supplied image links to extract colors from them."
-  }
-}
+{"api":"1.0.0","editorType":["figma"],"id":"","name":"My Colors","main":"build/main.js","ui":"build/ui.js","networkAccess":{"allowedDomains":["*"],"reasoning":"Fetch user-supplied image links to extract colors from them."}}

@@ -1,5 +1,5 @@
 import { Button, IconButton, IconMinusSmall24, IconPlusSmall24 } from '@create-figma-plugin/ui'
-import { useEffect, useMemo, useState } from 'preact/hooks'
+import { useMemo, useState } from 'preact/hooks'
 import {
   DEFAULT_COLOR_COUNT,
   MAX_COLOR_COUNT,
@@ -8,7 +8,7 @@ import {
 } from '@/color/extract'
 import { usePaletteStore } from '@/store'
 import { useExtractorStore } from '@/store/extractor'
-import { SwatchRow } from './SwatchRow'
+import { Swatch } from './Swatch'
 import styles from './ExtractWorkspace.css'
 
 // Full-area workspace shown once an image is decoded: the image on the left, a
@@ -20,28 +20,33 @@ export function ExtractWorkspace() {
   const addKeyColors = usePaletteStore((s) => s.addKeyColors)
 
   const [count, setCount] = useState(DEFAULT_COLOR_COUNT)
-  // Hexes whose toggle is on; these get added on submit.
-  const [selected, setSelected] = useState<Set<string>>(new Set())
 
   // Re-cluster only when the image or the requested count changes — not on every
-  // toggle. k-means is seeded randomly, so each count change is a fresh draw.
+  // toggle. (extractColors keeps run-to-run variance low via best-of-N restarts.)
   const colors = useMemo(
     () => (source === null ? [] : extractColors(source.imageData.data, count)),
     [source, count],
   )
 
-  // A fresh cluster set (count changed / image loaded) starts all-selected.
-  useEffect(() => {
+  // Hexes whose swatch is selected; these get added on submit. A fresh cluster
+  // set (count changed / image loaded) starts all-selected. Resetting here —
+  // during render, by comparing the memoized `colors` ref — instead of in an
+  // effect avoids a one-frame flash where new swatches paint before selection
+  // catches up (all dimmed, then lit).
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(colors.map((c) => c.hex)))
+  const [clustered, setClustered] = useState(colors)
+  if (clustered !== colors) {
+    setClustered(colors)
     setSelected(new Set(colors.map((c) => c.hex)))
-  }, [colors])
+  }
 
   if (source === null) return null
 
-  function toggle(hex: string, on: boolean) {
+  function toggle(hex: string) {
     setSelected((prev) => {
       const next = new Set(prev)
-      if (on) next.add(hex)
-      else next.delete(hex)
+      if (next.has(hex)) next.delete(hex)
+      else next.add(hex)
       return next
     })
   }
@@ -72,13 +77,13 @@ export function ExtractWorkspace() {
           </div>
         </div>
 
-        <div class={styles.list}>
-          {colors.map((color) => (
-            <SwatchRow
-              key={color.hex}
+        <div class={styles.grid}>
+          {colors.map((color, index) => (
+            <Swatch
+              key={index}
               hex={color.hex}
               selected={selected.has(color.hex)}
-              onToggle={(on) => toggle(color.hex, on)}
+              onToggle={() => toggle(color.hex)}
             />
           ))}
         </div>

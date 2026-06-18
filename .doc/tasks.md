@@ -1,18 +1,28 @@
 # Tasks
 
-Volatile working state. Last updated: 2026-06-18.
+Volatile working state. Last updated: 2026-06-19.
 
 ## Done
+
+- **Image color extraction** (ADR-025): an image button in the Key colors header
+  opens an intake modal (drag / click-upload / paste / direct URL), then a
+  full-area workspace (image + count stepper + 2-col swatch grid + submit/cancel)
+  that **replaces** the normal UI. `color/extract.ts` = k-means++ in OKLab with
+  best-of-N restarts (`RESTARTS`) for stability; `utils/image.ts` decodes +
+  downsamples (`DOWNSAMPLE_MAX`); `store/extractor.ts` = ephemeral stage machine.
+  Selected colors → `addKeyColors`. All UI-thread (no `main.ts` change); only
+  config touch is `networkAccess` for URL fetch (best-effort, CORS-bound).
 
 - **Export — swatches / variables / styles** (ADR-024): `Footer` export bar.
   `color/export.ts` `buildExportPalette` resolves the palette (names + per-step
   hex, reusing the grid's samplers) and the UI `emit`s `EXPORT_SWATCHES` /
   `CREATE_VARIABLES` / `CREATE_STYLES`; `main.ts` materializes them. Swatches = a
-  frame of 40×40 rects (8px gap), named `{name}-{step}`; variables = `{name}/{step}`
-  in the settings collection; styles = `{name}/{step}` (no collection); both update
-  in place by name. New `Settings.collectionName` (default "Palette") + a Textbox in
-  Settings. After a press each button flashes a "… created" label for a moment
-  (local `Footer` state), then reverts — repeatable, not disabled.
+  native GRID-layout frame of 40px FILL cells (8px gap); names unified `{name}/{step}`
+  across swatches/variables/styles; variables go in the settings collection, styles
+  are flat; both update in place by name. New `Settings.collectionName` (default
+  "Palette") + a Textbox in Settings. After a press each button flashes a "✔ Done"
+  label + success fill for a moment (local `Footer` state), then reverts —
+  repeatable, not disabled.
 - **Square picker for gradient stops** (ADR-023): `ColorPicker` gains a `surface`
   prop. `StopCard` uses `surface="square"` — a canvas-sampled saturation/chroma ×
   lightness/value `SquareField` + a hue `Gradient` slider, with the color's other

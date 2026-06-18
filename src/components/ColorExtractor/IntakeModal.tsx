@@ -1,13 +1,5 @@
-import {
-  Button,
-  FileUploadDropzone,
-  LoadingIndicator,
-  Modal,
-  Text,
-  Textbox,
-} from '@create-figma-plugin/ui'
-import { useEffect, useState } from 'preact/hooks'
-import type { JSX } from 'preact'
+import { FileUploadDropzone, LoadingIndicator, Modal, Text } from '@create-figma-plugin/ui'
+import { useEffect } from 'preact/hooks'
 import { useExtractorStore } from '@/store/extractor'
 import { imageFromFile, imageFromUrl } from '@/utils/image'
 import type { DecodedImage } from '@/utils/image'
@@ -27,14 +19,12 @@ async function runDecode(decode: () => Promise<DecodedImage>) {
 }
 
 // Intake step: an overlay modal accepting an image by drag-drop, click-to-upload,
-// a direct link, or a clipboard paste (image bytes or a link) while it's open.
-// Once a source decodes, the store flips to the full-area workspace.
+// or a clipboard paste (image bytes or a link) while it's open. Once a source
+// decodes, the store flips to the full-area workspace.
 export function IntakeModal() {
   const stage = useExtractorStore((s) => s.stage)
   const error = useExtractorStore((s) => s.error)
   const close = useExtractorStore((s) => s.close)
-
-  const [url, setUrl] = useState('')
 
   const open = stage === 'intake' || stage === 'loading'
   const loading = stage === 'loading'
@@ -66,15 +56,6 @@ export function IntakeModal() {
     if (file !== undefined) void runDecode(() => imageFromFile(file))
   }
 
-  function loadUrl() {
-    const trimmed = url.trim()
-    if (trimmed !== '') void runDecode(() => imageFromUrl(trimmed))
-  }
-
-  function onUrlKeyDown(event: JSX.TargetedKeyboardEvent<HTMLInputElement>) {
-    if (event.key === 'Enter') loadUrl()
-  }
-
   return (
     <Modal
       open={open}
@@ -82,6 +63,7 @@ export function IntakeModal() {
       onCloseButtonClick={close}
       onEscapeKeyDown={close}
       onOverlayClick={close}
+      style={{ borderRadius: '12px' }}
     >
       <div class={styles.body}>
         {loading ? (
@@ -100,18 +82,6 @@ export function IntakeModal() {
                 or <strong>click to upload</strong>
               </Text>
             </FileUploadDropzone>
-
-            <div class={styles.urlRow}>
-              <Textbox
-                value={url}
-                onValueInput={setUrl}
-                onKeyDown={onUrlKeyDown}
-                placeholder="…or paste a direct image link"
-              />
-              <Button secondary onClick={loadUrl} disabled={url.trim() === ''}>
-                Load
-              </Button>
-            </div>
 
             {error !== null && <div class={styles.error}>{error}</div>}
           </>

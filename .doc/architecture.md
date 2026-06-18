@@ -337,20 +337,61 @@ does all the color math, the main thread does all the `figma.*`.
 - **Dispatch (UI):** `Footer` builds the payload on click and `emit`s one of
   `EXPORT_SWATCHES` / `CREATE_VARIABLES` / `CREATE_STYLES`.
 - **Materialize (main):** `main.ts` converts each `hex` → `RGB` (`hexToRgb`) and:
-  - *swatches* — a frame (named after the collection) of 40×40 rectangles, 8px gap,
-    row = key color, col = shade, named `{name}-{step}`; placed at the viewport
-    center, selected + zoomed.
+  - *swatches* — a frame (named after the collection) in **native GRID auto-layout**
+    (40px cells, 8px gap, row = key color, col = shade), each rectangle `FILL`×`FILL`
+    so it tracks its cell, named `{name}/{step}` (unified with variables/styles);
+    placed at the viewport center, selected + zoomed.
   - *variables* — color variables named `{name}/{step}` in the settings collection
     (`getLocalVariableCollectionsAsync`, created if missing); **updated in place by
     name** (else created) so re-export is idempotent.
   - *styles* — paint styles named `{name}/{step}` (no collection), same
     update-in-place. Async APIs (`get*Async`) throughout, so it's correct under a
     future `documentAccess: dynamic-page`.
-- **Button feedback:** after a press the button briefly swaps its label to
-  "Variables/Styles/Swatches created" (`FEEDBACK_MS`), then reverts — local `Footer`
-  state (one active flash + a timeout ref), no store. Export is repeatable, so the
-  buttons aren't disabled by it; they disable only with no key colors. Optimistic —
-  no main→UI ack.
+- **Button feedback:** after a press the button briefly swaps its label to a
+  "✔ Done" confirmation + a success-fill `.flash` class (`FEEDBACK_MS`), then
+  reverts — local `Footer` state (one active flash + a timeout ref), no store.
+  Export is repeatable, so the buttons aren't disabled by it; they disable only
+  with no key colors. Optimistic — no main→UI ack.
+
+## Image color extraction (ADR-025)
+
+Seed a palette from an image — **entirely UI-thread** (decode → cluster → select →
+add). `figma.*` isn't needed, so there are **no bridge messages** and `main.ts` is
+untouched; the only non-UI change is `networkAccess.allowedDomains: ["*"]` (so the
+iframe may `fetch` an image URL).
+
+- **Open:** an image `IconButton` in the **Key colors** header sets the extractor
+  store to `intake`.
+- **Cluster (`src/color/extract.ts`, pure):** `extractColors(pixels, count)` —
+  k-means++ in **OKLab** (`distanceSq`, `seedCenters`), Lloyd to `MAX_ITERATIONS`
+  in `runKmeans`, repeated `RESTARTS` times keeping the lowest-`inertia` run; result
+  ordered by cluster weight (dominance). Seeding uses `Math.random` (restarts, not a
+  fixed seed, are the stability lever — ADR-025), so results are steady but not
+  bit-for-bit reproducible. `count` is clamped to the available pixels.
+  `MIN/MAX/DEFAULT_COLOR_COUNT` (stepper bounds + default) and `RESTARTS` live here.
+- **Decode (`src/utils/image.ts`):** `imageFromFile` / `imageFromUrl` → a `<canvas>`
+  downsampled to `DOWNSAMPLE_MAX` (longest side) → `{ imageData, previewUrl }`.
+  Bytes (drag/upload/paste) never hit CORS; a URL is best-effort `fetch` (variant A,
+  no proxy) and throws a clear message if the host blocks it. `previewUrl` is an
+  object URL of the original bytes for the on-screen preview (revoked on close).
+- **State (`src/store/extractor.ts`):** an **ephemeral** zustand stage machine
+  (`closed → intake → loading → workspace`, + the decoded `source` + an `error`),
+  out of undo/persistence like `store/selection.ts`.
+- **UI (`src/components/ColorExtractor/`):**
+  - `IntakeModal` — DS `Modal` (rounded via inline `style`) with a
+    `FileUploadDropzone` (drag + click-to-upload; `acceptedFileTypes` omitted — it
+    doubles as an exact-MIME filter that would drop every file) and a `window`
+    `paste` listener (image bytes or a text URL) while mounted.
+  - `ExtractWorkspace` — **replaces** the normal UI render while `stage ===
+    'workspace'` (image left; count stepper + 2-column `Swatch` grid + submit/cancel
+    right). Re-clusters via `useMemo([source, count])`; selection (`Set` of hexes,
+    all-on by default) is reset **during render** by comparing the memoized `colors`
+    ref — not in an effect — to avoid a one-frame all-dimmed flash. Submit →
+    `addKeyColors(selected)`.
+  - `Swatch` — a square color button (styling mirrors ShadesSection's `.swatch`:
+    `aspect-ratio: 1`, inset `::before` border); click toggles inclusion, deselected
+    dims to 0.4 opacity. The grid's column count lives on `.grid`
+    (`grid-template-columns`) in `ExtractWorkspace.css`.
 
 ## Component tree
 
@@ -359,7 +400,7 @@ App (app/App.tsx)
 ├── Header                 undo/redo (left) · settings gear (right)
 │   └── Popover            custom anchored popover (outside-click + Esc)
 │       └── SettingsPopover  three SegmentedControls (input/blending model · tone axis) + collection-name Textbox
-├── KeyColorsSection       header: "+" add · add-matching (from selection) · card list
+├── KeyColorsSection       header: extract-from-image · add-matching (from selection) · "+" add · card list
     │                       (auto-scrolls to reveal new card(s) on add)
     │                       wraps the list in DndContext + SortableContext
     │                       (horizontal) for drag-reorder; DragOverlay → KeyColorCardPreview
@@ -384,7 +425,11 @@ App (app/App.tsx)
     └── GradientEditor      injected under the active row (ADR-022): track w/ Handles + StopCards
         ├── Handle          one per stop on the track (drag to move; press empty = add)
         └── StopCard        full-width per stop: ColorSample → ColorPicker (surface=square) · "A" auto toggle · trash (hover)
-└── Footer                 export bar: Create variables (primary) · Create styles · Create swatches (ADR-024)
+├── Footer                 export bar: Create variables · Create styles · Create swatches (ADR-024)
+└── ColorExtractor (ADR-025)  image→palette; renders at App level
+    ├── IntakeModal       overlay while intake/loading: dropzone + paste/URL listener
+    └── ExtractWorkspace  full-area (replaces normal UI) while stage=workspace
+        └── Swatch        square color toggle (2-col grid); deselected = opacity 0.4
 ```
 
 - Picker geometry + channel↔axis mapping: `src/color/picker.ts`. Drag binding:
@@ -451,3 +496,5 @@ App (app/App.tsx)
 - **Window:** fixed 720×640 via `showUI`.
 - `manifest.json` is generated from the `figma-plugin` field in `package.json`
   (note: `ui` is a top-level key there, not nested under `main`).
+- **Network access:** `figma-plugin.networkAccess.allowedDomains: ["*"]` — required
+  only so the UI may `fetch` an arbitrary image URL for color extraction (ADR-025).

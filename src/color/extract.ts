@@ -3,12 +3,18 @@ import { colorToHex } from './models'
 
 // Color-count tunables for the extractor UI (stepper bounds + default).
 export const MIN_COLOR_COUNT = 2
-export const MAX_COLOR_COUNT = 16
+export const MAX_COLOR_COUNT = 18
 export const DEFAULT_COLOR_COUNT = 6
 
 // k-means stops once assignments settle or this many Lloyd passes run — a small
 // cap keeps re-clustering on every stepper tick snappy without hurting quality.
 const MAX_ITERATIONS = 12
+// k-means runs per extraction; the lowest-inertia (tightest) clustering wins.
+// Each run still seeds randomly, but best-of-N collapses most of the run-to-run
+// variance toward the same near-optimal colors. The main quality/speed knob
+// alongside DOWNSAMPLE_MAX (image.ts) — more restarts = steadier but linearly
+// more work.
+const RESTARTS = 4
 // Pixels at or below this alpha are dropped before clustering (transparent
 // regions shouldn't pull a centroid toward an arbitrary RGB).
 const MIN_ALPHA = 8
@@ -23,6 +29,14 @@ export interface ExtractedColor {
 }
 
 type Lab = [number, number, number]
+
+// One k-means run's outcome: final centers, per-center pixel counts, and inertia
+// (total squared distance to assigned centers) used to pick the best restart.
+interface Clustering {
+  centers: Lab[]
+  counts: number[]
+  inertia: number
+}
 
 // Squared Euclidean distance in OKLab — "perceptual" enough that clusters track
 // how distinct colors look, and squared (no sqrt) since we only ever compare.
@@ -82,15 +96,10 @@ function seedCenters(points: Lab[], k: number): Lab[] {
   return centers
 }
 
-// Extract `count` dominant colors from RGBA pixel data via k-means++ in OKLab.
-// Returns hex colors ordered by cluster weight (dominance) descending. `count`
-// is clamped to the number of distinct-enough pixels available, so a tiny or
-// near-solid image yields fewer colors rather than duplicates.
-export function extractColors(pixels: Uint8ClampedArray, count: number): ExtractedColor[] {
-  const points = toLabPoints(pixels)
-  if (points.length === 0) return []
-
-  const k = Math.min(count, points.length)
+// One Lloyd run from a k-means++ seeding: iterate assign→update until stable (or
+// MAX_ITERATIONS), then report centers, counts, and inertia. Empty clusters keep
+// their previous center (rare after k-means++ seeding).
+function runKmeans(points: Lab[], k: number): Clustering {
   const centers = seedCenters(points, k)
   const assignment = new Array<number>(points.length).fill(-1)
 
@@ -114,8 +123,7 @@ export function extractColors(pixels: Uint8ClampedArray, count: number): Extract
     }
     if (!changed && iter > 0) break
 
-    // Update step: each center becomes the mean of its assigned points. Empty
-    // clusters keep their previous center (rare after k-means++ seeding).
+    // Update step: each center becomes the mean of its assigned points.
     const sums: Lab[] = centers.map(() => [0, 0, 0])
     const counts = new Array<number>(centers.length).fill(0)
     for (let i = 0; i < points.length; i += 1) {
@@ -131,14 +139,38 @@ export function extractColors(pixels: Uint8ClampedArray, count: number): Extract
     }
   }
 
-  // Final weights from the last assignment, then drop empty clusters.
+  // Final counts + inertia from the settled assignment.
   const counts = new Array<number>(centers.length).fill(0)
-  for (const c of assignment) counts[c] += 1
+  let inertia = 0
+  for (let i = 0; i < points.length; i += 1) {
+    const c = assignment[i]
+    counts[c] += 1
+    inertia += distanceSq(points[i], centers[c])
+  }
+  return { centers, counts, inertia }
+}
 
-  return centers
+// Extract `count` dominant colors from RGBA pixel data via k-means++ in OKLab.
+// Runs RESTARTS times and keeps the tightest (lowest-inertia) clustering, which
+// collapses most of the run-to-run variance toward the same near-optimal colors.
+// Returns hex colors ordered by cluster weight (dominance) descending; `count`
+// is clamped to the available pixels, so a tiny/near-solid image yields fewer
+// colors rather than duplicates.
+export function extractColors(pixels: Uint8ClampedArray, count: number): ExtractedColor[] {
+  const points = toLabPoints(pixels)
+  if (points.length === 0) return []
+
+  const k = Math.min(count, points.length)
+  let best = runKmeans(points, k)
+  for (let r = 1; r < RESTARTS; r += 1) {
+    const candidate = runKmeans(points, k)
+    if (candidate.inertia < best.inertia) best = candidate
+  }
+
+  return best.centers
     .map((center, c) => ({
       hex: colorToHex({ mode: 'oklab', l: center[0], a: center[1], b: center[2] }),
-      weight: counts[c] / points.length,
+      weight: best.counts[c] / points.length,
     }))
     .filter((color) => color.weight > 0)
     .sort((a, b) => b.weight - a.weight)

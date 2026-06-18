@@ -1,0 +1,28 @@
+/* Mirrors ShadesSection's .swatch: square fill, 4px radius, with the border drawn
+   inside via ::before so it overlays the fill instead of growing the box. Button
+   chrome is reset; the fill comes from an inline background-color. */
+.swatch {
+  position: relative;
+  aspect-ratio: 1;
+  border-radius: 4px;
+  padding: 0;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.1s ease;
+}
+
+/* Deselected: the single dimmed state. */
+.inactive {
+  opacity: 0.25;
+}
+
+/* 15% of the content color reads on any swatch fill (black on light / white on
+   dark); inset border keeps the grid columns from shifting. */
+.swatch::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--figma-color-text) 15%, transparent);
+  border-radius: inherit;
+  pointer-events: none;
+}

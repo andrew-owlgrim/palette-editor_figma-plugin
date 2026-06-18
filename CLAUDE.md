@@ -35,9 +35,13 @@ superseded/removed entry to a one-line tombstone instead of deleting it.
 - `src/color/gradient.ts` — per-PaletteColor shade gradient (key stop, default stops, sampler)
 - `src/color/shades.ts` — 0..1000 shade scale (resolve auto steps, clamp, constants)
 - `src/color/export.ts` — resolve palette → flat `ExportPalette` for canvas/variables/styles export (ADR-024)
+- `src/color/extract.ts` — k-means++ (OKLab) image color extraction, best-of-N restarts (ADR-025)
+- `src/components/ColorExtractor/` — image→palette UI: intake modal + full-area workspace (ADR-025)
 - `src/store/index.ts` — zustand + zundo store (the palette document)
 - `src/store/selection.ts` — ephemeral canvas-selection fills (out of undo/persist)
+- `src/store/extractor.ts` — ephemeral image-extractor stage machine (out of undo/persist)
 - `src/utils/storage.ts` — `clientStorage` / `sharedPluginData` wrappers
+- `src/utils/image.ts` — decode + downsample File/Blob/URL → pixels for extraction (ADR-025)
 - `src/types/` — domain types + ambient `*.svg` / `*.css` declarations
 
 ## Commands

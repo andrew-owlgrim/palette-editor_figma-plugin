@@ -353,18 +353,20 @@ Amends ADR-011/ADR-014.
   `buildGradientSampler` + `colorToHex` + `resolveName` the swatch grid uses — so an
   export always matches what's on screen. It `emit`s one of three handlers
   (`EXPORT_SWATCHES` / `CREATE_VARIABLES` / `CREATE_STYLES`); `main.ts` turns the
-  payload into Figma objects (hex → `RGB` via `hexToRgb`). Names: swatches
-  `{name}-{step}` (rectangles), variables/styles `{name}/{step}` (the slash groups
-  them in Figma). Variables go in the settings **collection** (`Settings.collectionName`,
-  default `"Palette"`, created if missing); styles are flat (no collection).
-  Variables/styles are **updated in place by name** (look up existing, else create)
-  so re-export is idempotent, not duplicating. Swatches are wrapped in a frame
-  (named after the collection) laid out as a grid (`SWATCH_SIZE` 40, `SWATCH_GAP`
-  8; row = key color, col = shade), placed at the viewport center and selected.
+  payload into Figma objects (hex → `RGB` via `hexToRgb`). Names are **unified
+  `{name}/{step}`** across all three (the slash groups variables/styles into Figma
+  folders, and keeps swatch layers consistent). Variables go in the settings
+  **collection** (`Settings.collectionName`, default `"Palette"`, created if
+  missing); styles are flat (no collection). Variables/styles are **updated in
+  place by name** (look up existing, else create) so re-export is idempotent, not
+  duplicating. Swatches are wrapped in a frame (named after the collection) using
+  Figma's **native GRID auto-layout** (`SWATCH_SIZE` 40, `SWATCH_GAP` 8; row = key
+  color, col = shade), each rectangle set to `FILL`×`FILL` (after append) so it
+  tracks its cell; placed at the viewport center and selected.
 - **Button feedback:** after a press the button briefly swaps its label to a
-  confirmation ("Variables created" / "Styles created" / "Swatches created") for
-  `FEEDBACK_MS`, then reverts — local `Footer` state (one active flash + a timeout
-  ref), no store. The buttons are **not** disabled by export (export is repeatable);
+  "✔ Done" confirmation for `FEEDBACK_MS`, then reverts — local `Footer` state (one
+  active flash + a timeout ref, + a success-fill `.flash` class), no store. The
+  buttons are **not** disabled by export (export is repeatable);
   they're disabled only when there are no key colors. Optimistic — no main→UI ack.
   (Earlier draft disabled variables/styles until the palette next changed via an
   ephemeral `store/export.ts`; replaced by the transient label so re-export stays
@@ -373,3 +375,46 @@ Amends ADR-011/ADR-014.
   logic on the main side, and stateless on the UI side beyond the transient flash.
   Async variable/style APIs (`get*Async`) are used so the code is correct regardless
   of a future `documentAccess: dynamic-page` switch.
+
+## ADR-025 — Image color extraction (k-means++, UI-only)
+
+- **Context:** seed a palette from an image — drop/paste/upload a picture (or a
+  link), pull its dominant colors, pick which to keep, and add them as key colors.
+- **Decision — entirely UI-thread.** All of it (decode → cluster → select → add)
+  runs in the iframe: pixels come from a `<canvas>`, results go through the
+  existing `addKeyColors(hexes)`. `figma.*` isn't needed, so there are **no new
+  bridge messages** and `main.ts` is untouched. The only non-UI change is a
+  `networkAccess.allowedDomains: ["*"]` in the plugin config, required just so the
+  iframe may `fetch` an arbitrary image URL.
+- **Clustering — k-means++ in OKLab, best-of-N restarts** (`color/extract.ts`,
+  pure/testable): convert sampled pixels to OKLab, k-means++ seed, Lloyd to
+  `MAX_ITERATIONS`, repeat `RESTARTS` times and keep the lowest-inertia run.
+  Restarts (not a fixed PRNG seed) were the chosen predictability lever — they
+  collapse most run-to-run variance toward the same near-optimal colors **without
+  freezing** output to one result; full bit-for-bit determinism (a seeded PRNG) was
+  considered and declined. Colors are returned ordered by cluster weight
+  (dominance). `RESTARTS` (extract.ts) and `DOWNSAMPLE_MAX` (image.ts, longest-side
+  cap before clustering) are the two quality/speed knobs; clustering is synchronous
+  on the UI thread (a worker was judged overkill at current sizes).
+- **Intake — drag / upload / paste / URL** (`ColorExtractor/IntakeModal`). Bytes
+  from drag/upload/paste-image never hit CORS; a pasted/typed **URL is best-effort
+  (variant A): direct `fetch`, no proxy** — a host without permissive CORS headers
+  fails with a clear message (a proxy was rejected: privacy + extra dependency).
+  Decode + downsample live in `utils/image.ts`. The DS `FileUploadDropzone`'s
+  `acceptedFileTypes` is **not** used — it doubles as an exact-MIME filter
+  (`'image/*'` matches nothing, silently dropping every file), so we accept all
+  files and let the decoder reject non-images.
+- **Full-area workspace, no window resize** (`ColorExtractor/ExtractWorkspace`):
+  once an image decodes, the workspace (image left, count stepper + 2-col swatch
+  grid + submit/cancel right) **replaces** the normal UI render (`App` swaps the
+  tree on stage), rather than resizing the plugin window. Selection state is a
+  `Set` reset **during render** (comparing the memoized `colors` ref), not in an
+  effect, to avoid a one-frame flash where new swatches paint before selection
+  catches up.
+- **Ephemeral state** (`store/extractor.ts`): a small zustand stage machine
+  (`closed → intake → loading → workspace` + the decoded image), kept out of undo
+  history and persistence — same rationale as `store/selection.ts`. The preview
+  object URL is revoked on close.
+- **Consequence/constraint:** no new color logic or messaging on the main side;
+  URL extraction depends on the host's CORS policy (drag/upload/paste are the
+  reliable paths); results are stable but not bit-for-bit reproducible.
