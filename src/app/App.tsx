@@ -1,10 +1,13 @@
 import { emit, on } from '@create-figma-plugin/utilities'
 import { useEffect } from 'preact/hooks'
+import { ExtractWorkspace } from '@/components/ColorExtractor/ExtractWorkspace'
+import { IntakeModal } from '@/components/ColorExtractor/IntakeModal'
 import { Footer } from '@/components/Footer/Footer'
 import { Header } from '@/components/Header/Header'
 import { KeyColorsSection } from '@/components/KeyColors/KeyColorsSection'
 import { ShadesSection } from '@/components/Shades/ShadesSection'
 import { usePaletteStore } from '@/store'
+import { useExtractorStore } from '@/store/extractor'
 import { useSelectionStore } from '@/store/selection'
 import type {
   PersistedDocument,
@@ -104,6 +107,15 @@ export function App({ initialDocument }: AppProps) {
     return () => window.removeEventListener('keydown', onKeyDown)
   }, [])
 
+  // The extractor's full-area workspace replaces the normal UI while open; the
+  // intake modal overlays it during intake/loading. The store actions live
+  // outside React, so swapping the rendered tree doesn't disturb the save
+  // subscription or selection tracking above.
+  const extractorStage = useExtractorStore((s) => s.stage)
+  if (extractorStage === 'workspace') {
+    return <ExtractWorkspace />
+  }
+
   return (
     <div class={styles.root}>
       <Header />
@@ -112,6 +124,7 @@ export function App({ initialDocument }: AppProps) {
         <ShadesSection />
       </div>
       <Footer />
+      {(extractorStage === 'intake' || extractorStage === 'loading') && <IntakeModal />}
     </div>
   )
 }

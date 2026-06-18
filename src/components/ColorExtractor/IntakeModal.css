@@ -1,0 +1,30 @@
+.body {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 16px;
+  width: 360px;
+}
+
+.loading {
+  display: flex;
+  justify-content: center;
+  padding: 32px;
+}
+
+/* URL field stretches; the Load button keeps its intrinsic width. */
+.urlRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.urlRow > :first-child {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.error {
+  font-size: 11px;
+  color: var(--figma-color-text-danger);
+}

@@ -1,4 +1,9 @@
-import { IconButton, IconPlusSmall24, IconSelectMatchingSmall24 } from '@create-figma-plugin/ui'
+import {
+  IconButton,
+  IconImageSmall24,
+  IconPlusSmall24,
+  IconSelectMatchingSmall24,
+} from '@create-figma-plugin/ui'
 import { useEffect, useRef, useState } from 'preact/hooks'
 import {
   DndContext,
@@ -14,6 +19,7 @@ import { KeyColorCard } from './KeyColorCard'
 import { KeyColorCardPreview } from './KeyColorCardPreview'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { usePaletteStore } from '@/store'
+import { useExtractorStore } from '@/store/extractor'
 import { useSelectionStore } from '@/store/selection'
 import styles from './KeyColorsSection.css'
 
@@ -23,6 +29,7 @@ export function KeyColorsSection() {
   const addKeyColors = usePaletteStore((s) => s.addKeyColors)
   const moveKeyColor = usePaletteStore((s) => s.moveKeyColor)
   const selectionFills = useSelectionStore((s) => s.fills)
+  const openExtractor = useExtractorStore((s) => s.open)
 
   // Id of the card currently being dragged (drives the DragOverlay clone).
   const [activeId, setActiveId] = useState<string | null>(null)
@@ -75,6 +82,11 @@ export function KeyColorsSection() {
       <div class={styles.header}>
         <span class={styles.title}>Key colors</span>
         <div class={styles.actions}>
+          <Tooltip content="Extract colors from image">
+            <IconButton onClick={openExtractor}>
+              <IconImageSmall24 />
+            </IconButton>
+          </Tooltip>
           <Tooltip content="Add colors from selection">
             <IconButton onClick={handleAddMatching} disabled={selectionFills.length === 0}>
               <IconSelectMatchingSmall24 />

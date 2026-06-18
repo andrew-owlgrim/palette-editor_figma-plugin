@@ -18,7 +18,13 @@
       "src": "src/main.ts",
       "handler": "default"
     },
-    "ui": "src/ui.tsx"
+    "ui": "src/ui.tsx",
+    "networkAccess": {
+      "allowedDomains": [
+        "*"
+      ],
+      "reasoning": "Fetch user-supplied image links to extract colors from them."
+    }
   },
   "dependencies": {
     "@create-figma-plugin/ui": "^4",
