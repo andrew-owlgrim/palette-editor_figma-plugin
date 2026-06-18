@@ -62,3 +62,9 @@ Audit all fields (`NameInput`, `StopInput`, `CountStepper`, `ChannelInput`,
 **Why** cureent scrollbars are looking too bold and they cause layout shifts when area become scrollable
 
 **Consider** possibility of making figma-like scrollbar appearing only when scrollable zone with floating position that don't affect the layout
+
+## Consider making adjusted OKLCH color picker
+
+**Why**
+
+**Consider** making OKLCH instead of LCH input model but with adjusted color picker and input values in order to humanize inputs (particularly inconvenient saturation axis)

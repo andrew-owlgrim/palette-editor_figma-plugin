@@ -1,0 +1,20 @@
+.field {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  border-radius: 8px;
+  /* Semi-transparent black hairline, matching the wheel + gradient track. */
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.1);
+  touch-action: none;
+  cursor: crosshair;
+  user-select: none;
+}
+
+/* The RES×RES bitmap stretched to the box; default smoothing blends the cells
+   into a continuous field. */
+.canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+}

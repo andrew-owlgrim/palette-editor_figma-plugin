@@ -117,3 +117,69 @@ export function buildAxisGradient(channels: ColorChannels, model: InputColorMode
   }
   return `linear-gradient(to right, ${stops.join(', ')})`
 }
+
+// --- Square (cartesian) surface: radius (X) × axis (Y) -----------------------
+// The square pairs the radius channel (saturation/chroma → X, 0..max) with the
+// axis channel (lightness/value → Y), leaving hue to the 1D slider — the inverse
+// of the wheel's pairing (which pairs angle+radius in 2D and reads axis on the
+// slider). Same three roles, regrouped, so every model works without new logic.
+
+// Read a color's square position. X = radius fraction, Y = axis fraction (both
+// 0..1). The component renders Y top-up (top edge = high lightness/value).
+export function channelsToSquare(
+  channels: ColorChannels,
+  model: InputColorModel,
+): { x: number; y: number } {
+  return { x: channelsToWheel(channels, model).radius01, y: channelsToAxis(channels, model) }
+}
+
+// Write a square position back into the radius + axis channel strings. Hue is
+// left untouched (owned by the slider), so dragging the square never shifts it.
+export function squareToChannels(x: number, y: number, model: InputColorModel): ColorChannels {
+  const { radius, axis } = MODELS[model].picker
+  const radiusDef = channelDef(model, radius)
+  const axisDef = channelDef(model, axis)
+  return {
+    [radius]: formatChannel(x * radiusDef.maximum, radiusDef),
+    [axis]: formatChannel(axisDef.minimum + y * (axisDef.maximum - axisDef.minimum), axisDef),
+  }
+}
+
+// Color at a square cell (x = radius fraction, y = axis fraction), holding the
+// channels' current hue. Gamut-mapped to hex (LCH cells beyond the sRGB gamut
+// reduce chroma), so the sample-painted field stays truthful for every model.
+export function squareColorAt(
+  channels: ColorChannels,
+  model: InputColorModel,
+  x: number,
+  y: number,
+): string {
+  return channelsToHex({ ...channels, ...squareToChannels(x, y, model) }, model)
+}
+
+// --- Hue slider: the angle channel as a 0..1 slider value --------------------
+
+// The angle (hue) channel as a 0..1 slider position.
+export function channelsToHue01(channels: ColorChannels, model: InputColorModel): number {
+  const def = channelDef(model, MODELS[model].picker.angle)
+  return num(channels[def.id]) / def.maximum
+}
+
+// Convert a 0..1 hue-slider position back into the angle channel string.
+export function hue01ToChannel(t: number, model: InputColorModel): { id: string; value: string } {
+  const def = channelDef(model, MODELS[model].picker.angle)
+  return { id: def.id, value: formatChannel(t * def.maximum, def) }
+}
+
+// CSS linear-gradient for the hue slider, painted in the active model's hue
+// scale (the linear sibling of buildHueWheelConic). Samples the fully-saturated
+// hueRingColor every 15° (gamut-mapped), so LCH hues read truthfully.
+export function buildHueSliderGradient(model: InputColorModel): string {
+  const steps = 24
+  const stops: string[] = []
+  for (let i = 0; i <= steps; i += 1) {
+    const hue = (i / steps) * 360
+    stops.push(`${colorToHex(MODELS[model].hueRingColor(hue))} ${Math.round((i / steps) * 100)}%`)
+  }
+  return `linear-gradient(to right, ${stops.join(', ')})`
+}

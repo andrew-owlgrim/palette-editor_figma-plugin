@@ -139,6 +139,15 @@ export function canDeleteStop(pc: PaletteColor, stopId: string): boolean {
   return endpointIds(pc.stops).has(stopId) === false
 }
 
+// Hard cap on a gradient's stop count (incl. the two endpoints + key stop). Keeps
+// a ramp legible; once reached, pressing empty track no longer adds a stop.
+export const MAX_STOPS = 7
+
+// Whether another stop may be added (below the cap).
+export function canAddStop(pc: PaletteColor): boolean {
+  return pc.stops.length < MAX_STOPS
+}
+
 // Set one stop's color (+ its typed channel buffer) and, if it's auto-positioned,
 // reposition it by the new color's lightness; then re-sort. Used by every color
 // edit (channel / hex / wheel) on any stop, key or not.

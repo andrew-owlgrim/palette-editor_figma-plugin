@@ -335,9 +335,10 @@ App (app/App.tsx)
         ├── action row      reroll · eyedropper (when selection has a fill) · trash
         ├── NameInput       ghost field; auto name unless a custom one is pinned
         └── Popover         (right-top, anchored to the swatch)
-            └── ColorPicker  edits one stop (paletteColorId, stopId); key stop here
-                ├── HueWheel   model-aware conic hue + radial saturation, hairline ring; Handles (active + dots)
-                ├── Gradient   universal 1D slider (lightness/value axis); Handle
+            └── ColorPicker  edits one stop (paletteColorId, stopId); `surface` picks the 2D control (ADR-023)
+                ├── HueWheel   surface=wheel (key colors): conic hue + radial saturation; Gradient slider = lightness/value; dots = other key colors
+                ├── SquareField surface=square (stops): canvas-sampled S/L·S/V·C/L field; Gradient slider = hue; dots = other stops of this color
+                ├── Gradient   universal 1D slider (axis OR hue, per surface); Handle
                 ├── Handle     white dot, optional color sample (draggable)
                 ├── GhostInput hex field — '#' as the icon-slot label, value without '#'
                 └── ChannelInput  TextboxNumeric w/ label in the DS `icon` slot
@@ -348,7 +349,7 @@ App (app/App.tsx)
     ├── (swatch row)        clickable; display-only cells = sampleGradient(pc.stops, step/1000, blending)
     └── GradientEditor      injected under the active row (ADR-022): track w/ Handles + StopCards
         ├── Handle          one per stop on the track (drag to move; press empty = add)
-        └── StopCard        full-width per stop: ColorSample → ColorPicker · "A" auto toggle · trash (hover)
+        └── StopCard        full-width per stop: ColorSample → ColorPicker (surface=square) · "A" auto toggle · trash (hover)
 ```
 
 - Picker geometry + channel↔axis mapping: `src/color/picker.ts`. Drag binding:

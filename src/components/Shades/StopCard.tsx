@@ -111,7 +111,7 @@ export function StopCard({ paletteColorId, stop, isKey, canDelete }: StopCardPro
           anchorRef={anchorRef}
           placement="right-top"
         >
-          <ColorPicker paletteColorId={paletteColorId} stopId={stop.id} />
+          <ColorPicker paletteColorId={paletteColorId} stopId={stop.id} surface="square" />
         </Popover>
       </div>
 

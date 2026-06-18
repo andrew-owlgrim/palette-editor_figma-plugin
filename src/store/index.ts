@@ -20,6 +20,7 @@ import { harmoniousColor } from '@/color/harmony'
 import {
   addStop as addStopToGradient,
   buildDefaultStops,
+  canAddStop,
   canDeleteStop,
   keyColorOf,
   mirrorStops,
@@ -338,6 +339,9 @@ export const usePaletteStore = create<PaletteStore>()(
         set((state) => ({
           keyColors: state.keyColors.map((k) => {
             if (k.id !== pcId) return k
+            // At the cap, refuse silently — the press becomes a no-op (see
+            // GradientEditor, which only continues a drag when an id comes back).
+            if (canAddStop(k) === false) return k
             const { stops, stopId } = addStopToGradient(
               k,
               position,

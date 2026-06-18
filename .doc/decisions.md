@@ -266,8 +266,9 @@ Delivers the editor ADR-020 was built toward. Amends ADR-020: the runtime
   (`--figma-color-bg-hover`); a click injects a full-width `GradientEditor` under
   the active row. It paints the gradient on a track (sampled in the blending model
   via `buildGradientCss`), with a draggable `Handle` per stop; pressing empty track
-  **adds** a stop there and drags it; pressing within `GRAB_PX` of an endpoint is a
-  no-op (endpoints are fixed). Below, one full-width `StopCard` per stop (swatch →
+  **adds** a stop there and drags it (capped at `MAX_STOPS` = 7 total incl.
+  endpoints + key stop, via `canAddStop`; at the cap an empty-track press is a
+  no-op); pressing within `GRAB_PX` of an endpoint is a no-op (endpoints are fixed). Below, one full-width `StopCard` per stop (swatch →
   the **same `ColorPicker`**, now targeting `(paletteColorId, stopId)`; a delete
   tile on hover; a position-% label + an **"A"** auto toggle).
 - **Auto vs. manual position:** `GradientStop.autoPosition` (default `true`,
@@ -312,3 +313,30 @@ Delivers the editor ADR-020 was built toward. Amends ADR-020: the runtime
   `autoPosition` per stop (defaults to `true` for older files). Tradeoff: the
   color-edit store path is now stop-addressed (`setStop*(pcId, stopId, …)`) rather
   than key-color-addressed.
+
+## ADR-023 — Two picker surfaces (wheel for key colors, square for stops)
+
+Amends ADR-011/ADR-014.
+
+- **Context:** the gradient editor reused the key-color picker verbatim (hue wheel
+  + lightness slider, dots = other key colors). For a single stop on one ramp the
+  relevant view is the classic S/L square + hue slider, with the *other stops of
+  the same color* shown so the ramp's saturation/lightness dynamics are visible.
+- **Decision:** `ColorPicker` gains a `surface: 'wheel' | 'square'` prop (default
+  `wheel`; `StopCard` passes `square`). The square is the **inverse pairing of the
+  same three `picker` roles** (ADR-011): wheel = polar(angle+radius) 2D + axis 1D;
+  square = cartesian(radius=X, axis=Y) 2D + angle(hue) 1D. So no new per-model
+  logic — all three models work via their existing `PickerAxes`. New pure helpers
+  in `picker.ts` (`channelsToSquare`/`squareToChannels`/`squareColorAt`,
+  `channelsToHue01`/`hue01ToChannel`/`buildHueSliderGradient`); the hue slider
+  **reuses `Gradient`** (it's a generic 1D track).
+- **Square painting = canvas sampling, not CSS layers.** Layered CSS gradients are
+  truthful only for HSV; to stay correct for hsl/hsv/lch — and gamut-correct for
+  LCH — `SquareField` sample-paints a small `<canvas>` (RES×RES, `squareColorAt`
+  per cell, gamut-mapped) and lets CSS scale it with smoothing. Same "sample, don't
+  trust sRGB interpolation" rule as `buildGradientCss`. Repaints only on hue/model
+  change (radius/axis drags move the handle, not the field).
+- **Consequence/constraint:** LCH's C×L square has a large out-of-gamut region
+  (the right side "saturates out" to its nearest in-gamut color) — the honest
+  best-effort; the handle still reflects true C/L. RES (32) trades crispness for
+  repaint cost (RES² culori conversions per hue tick); bump only if profiling allows.
