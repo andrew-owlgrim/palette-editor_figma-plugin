@@ -1,5 +1,5 @@
 import { useRef } from 'preact/hooks'
-import { Handle } from '@/components/Handle/Handle'
+import { DRAGGABLE_HANDLE_SIZE, Handle } from '@/components/Handle/Handle'
 import { StopCard } from './StopCard'
 import { usePointerDrag } from '@/hooks/usePointerDrag'
 import { colorToHex } from '@/color/models'
@@ -26,20 +26,24 @@ export function GradientEditor({ paletteColor }: GradientEditorProps) {
   const setStopPosition = usePaletteStore((s) => s.setStopPosition)
 
   // Drag state across a single press: which stop we're moving (null until the
-  // first move decides), and whether the press is blocked (grabbed an endpoint).
-  const drag = useRef<{ stopId: string | null; decided: boolean; blocked: boolean }>({
+  // first move decides).
+  const drag = useRef<{ stopId: string | null; decided: boolean }>({
     stopId: null,
     decided: false,
-    blocked: false,
   })
 
   const { ref, onPointerDown } = usePointerDrag({
     onStart: () => {
       beginLiveEdit()
-      drag.current = { stopId: null, decided: false, blocked: false }
+      drag.current = { stopId: null, decided: false }
     },
     onMove: ({ x }) => {
-      const pos = Math.max(0, Math.min(1, x))
+      // Handles are inset by their radius (Handle `inset`), so map the pointer
+      // through the same geometry: the centered handle's outer edge reaches the
+      // track edge at 0/1, and the grabbed handle stays under the cursor.
+      const width = ref.current?.getBoundingClientRect().width ?? 1
+      const usable = Math.max(1, width - DRAGGABLE_HANDLE_SIZE)
+      const pos = Math.max(0, Math.min(1, (x * width - DRAGGABLE_HANDLE_SIZE / 2) / usable))
       const state = drag.current
       // The first move (fired on press) only decides the target; actual moves
       // come on later ticks. This keeps a plain click on a handle from flipping
@@ -47,8 +51,7 @@ export function GradientEditor({ paletteColor }: GradientEditorProps) {
       const decidingTick = state.decided === false
       if (decidingTick) {
         state.decided = true
-        const width = ref.current?.getBoundingClientRect().width ?? 1
-        const threshold = GRAB_PX / width
+        const threshold = GRAB_PX / usable
         let nearest: GradientStop | null = null
         let best = Infinity
         for (const s of paletteColor.stops) {
@@ -58,14 +61,10 @@ export function GradientEditor({ paletteColor }: GradientEditorProps) {
             nearest = s
           }
         }
-        const grabbable =
-          nearest !== null &&
-          (canDeleteStop(paletteColor, nearest.id) || nearest.id === paletteColor.keyStopId)
         if (nearest !== null && best <= threshold) {
-          // Endpoints are fixed — block the press rather than grabbing/adding.
-          if (grabbable) state.stopId = nearest.id
-          else state.blocked = true
-        } else if (state.blocked === false) {
+          // Grab the nearest handle — any stop, endpoints included.
+          state.stopId = nearest.id
+        } else {
           // Click on empty track adds a stop there (already positioned).
           state.stopId = addStop(paletteColor.id, pos)
         }
@@ -77,7 +76,7 @@ export function GradientEditor({ paletteColor }: GradientEditorProps) {
     },
     onEnd: () => {
       endLiveEdit()
-      drag.current = { stopId: null, decided: false, blocked: false }
+      drag.current = { stopId: null, decided: false }
     },
   })
 
@@ -93,7 +92,7 @@ export function GradientEditor({ paletteColor }: GradientEditorProps) {
         onPointerDown={onPointerDown}
       >
         {stops.map((s) => (
-          <Handle key={s.id} x={s.position} y={0.5} draggable color={colorToHex(s.color)} />
+          <Handle key={s.id} x={s.position} y={0.5} draggable inset color={colorToHex(s.color)} />
         ))}
       </div>
 

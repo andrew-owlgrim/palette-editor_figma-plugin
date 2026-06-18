@@ -2,11 +2,13 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 10px 0 6px;
+  padding: 10px var(--shades-inset) 6px;
 }
 
 /* The gradient track: full-width painted bar that hosts the stop handles and
-   takes presses (grab a handle / add a stop). */
+   takes presses (grab a handle / add a stop). The handles are inset by their
+   radius (see Handle), so a stop at 0/1 sits with its outer edge on the track
+   edge — no overflow. */
 .track {
   position: relative;
   width: 100%;

@@ -1,6 +1,7 @@
 import { TextboxNumeric } from '@create-figma-plugin/ui'
 import type { ChannelDef } from '@/color/models'
 import { beginLiveEdit, endLiveEdit } from '@/store/history'
+import { blurOnEnter } from '@/utils/keyboard'
 import styles from './ChannelInput.css'
 
 interface ChannelInputProps {
@@ -22,6 +23,7 @@ export function ChannelInput({ channel, value, onValueInput }: ChannelInputProps
       onValueInput={onValueInput}
       onFocus={beginLiveEdit}
       onBlur={endLiveEdit}
+      onKeyDown={blurOnEnter}
     />
   )
 }

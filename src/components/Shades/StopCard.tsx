@@ -6,6 +6,7 @@ import { Popover } from '@/components/Popover/Popover'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { colorToHex } from '@/color/models'
 import { usePaletteStore } from '@/store'
+import { blurOnEnter } from '@/utils/keyboard'
 import type { GradientStop } from '@/types'
 import styles from './StopCard.css'
 
@@ -16,40 +17,47 @@ interface StopCardProps {
   canDelete: boolean
 }
 
-// Manual position editor: a compact numeric % field. Controlled by a local string
-// draft while focused (the RawTextboxNumeric controlled-input gotcha — see
-// StopInput), committing the parsed value [0..100] on blur.
+// Position field for a stop. One field for both states so the footer never jumps:
+// - manual: ghost numeric input. Shows "NN%" at rest, the bare number while
+//   editing (the RawTextboxNumeric controlled-input gotcha — see StopInput);
+//   commits the parsed value [0..100] on blur. Keeps DS numeric behaviour
+//   (select-on-focus, arrow increments).
+// - auto: same box, disabled, muted — the position is derived, not editable.
 function PositionField({
   percent,
+  auto,
   onCommit,
 }: {
   percent: number
+  auto: boolean
   onCommit: (pct: number) => void
 }) {
-  const stored = String(percent)
-  const [draft, setDraft] = useState(stored)
+  const stored = `${percent}%`
+  const [draft, setDraft] = useState(String(percent))
   const [focused, setFocused] = useState(false)
 
   function commit() {
     setFocused(false)
     const parsed = Number.parseFloat(draft.trim())
     if (Number.isFinite(parsed)) onCommit(Math.min(100, Math.max(0, parsed)))
-    else setDraft(stored)
   }
 
+  const fieldClass = auto ? `${styles.positionInput} ${styles.positionAuto}` : styles.positionInput
   return (
-    <div class={styles.positionInput}>
+    <div class={fieldClass}>
       <TextboxNumeric
         value={focused ? draft : stored}
+        disabled={auto}
         minimum={0}
         maximum={100}
         integer
         onValueInput={setDraft}
         onFocus={() => {
-          setDraft(stored)
+          setDraft(String(percent))
           setFocused(true)
         }}
         onBlur={commit}
+        onKeyDown={blurOnEnter}
       />
     </div>
   )
@@ -101,15 +109,12 @@ export function StopCard({ paletteColorId, stop, isKey, canDelete }: StopCardPro
       </div>
 
       <div class={styles.footer}>
-        {stop.autoPosition ? (
-          <span class={styles.position}>{percent}%</span>
-        ) : (
-          <PositionField
-            percent={percent}
-            onCommit={(pct) => setStopPosition(paletteColorId, stop.id, pct / 100)}
-          />
-        )}
-        <Tooltip content={stop.autoPosition ? 'Auto position (by lightness)' : 'Manual position'}>
+        <PositionField
+          percent={percent}
+          auto={stop.autoPosition}
+          onCommit={(pct) => setStopPosition(paletteColorId, stop.id, pct / 100)}
+        />
+        <Tooltip content={stop.autoPosition ? 'Auto position' : 'Manual position'}>
           <button
             type="button"
             class={autoClass}

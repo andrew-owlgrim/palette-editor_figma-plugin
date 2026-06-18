@@ -23,7 +23,8 @@
   height: 100%;
 }
 
-/* "Key" tag marking the key stop (the named seed color). */
+/* "Key" tag marking the key stop (the named seed color). Revealed on hover, like
+   the delete tile on other cards. */
 .badge {
   position: absolute;
   top: 8px;
@@ -36,6 +37,12 @@
   border: 1px solid var(--figma-color-border);
   border-radius: 6px;
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 80ms ease;
+}
+
+.card:hover .badge {
+  opacity: 1;
 }
 
 /* Delete tile, revealed on hover (only for deletable stops). */
@@ -68,18 +75,39 @@
   padding: 6px 8px 8px;
 }
 
-.position {
-  font-size: 11px;
-  color: var(--figma-color-text);
-}
-
-/* Compact numeric % field shown for manual stops (replaces the static label). */
+/* Compact numeric % field. Ghost by default (the DS textbox's filled bg/border
+   stripped), filled on hover, full DS textbox on focus — restyled on the inner
+   <input> the DS component renders. */
 .positionInput {
   width: 52px;
 }
 
-/* Auto-position toggle: "A" glyph, highlighted (brand) when the stop's position
-   is auto-derived, muted when the user has pinned it. */
+.positionInput input {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.positionInput input:not(:disabled):hover {
+  background-color: var(--figma-color-bg-secondary);
+  border-color: transparent;
+}
+
+.positionInput input:focus {
+  background-color: var(--figma-color-bg-secondary);
+  border-color: var(--figma-color-border-selected);
+}
+
+/* Auto: derived, non-editable — keep the ghost box but mute the value (no DS
+   disabled border/fill). */
+.positionAuto input,
+.positionAuto input:disabled {
+  background-color: transparent;
+  border-color: transparent;
+  color: var(--figma-color-text-secondary);
+}
+
+/* Auto-position toggle: "A" glyph. Ghost + muted by default; brand glyph on a
+   faint brand wash when the stop's position is auto-derived. */
 .auto {
   display: flex;
   align-items: center;
@@ -90,14 +118,18 @@
   font-size: 11px;
   font-weight: 600;
   color: var(--figma-color-text-secondary);
-  background-color: var(--figma-color-bg);
-  border: 1px solid var(--figma-color-border);
+  background-color: transparent;
+  border: none;
   border-radius: 6px;
   cursor: pointer;
 }
 
-.autoActive {
-  color: var(--figma-color-text-onbrand);
-  background-color: var(--figma-color-bg-brand);
-  border-color: var(--figma-color-bg-brand);
+.auto:hover {
+  background-color: var(--figma-color-bg-hover);
+}
+
+.autoActive,
+.autoActive:hover {
+  color: var(--figma-color-text-brand);
+  background-color: color-mix(in srgb, var(--figma-color-bg-brand) 12%, transparent);
 }

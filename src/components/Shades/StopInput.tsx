@@ -1,6 +1,7 @@
 import { TextboxNumeric } from '@create-figma-plugin/ui'
 import { useState } from 'preact/hooks'
 import { SHADE_MAX } from '@/color/shades'
+import { blurOnEnter } from '@/utils/keyboard'
 
 interface StopInputProps {
   // Pinned value (0..1000), or null when auto.
@@ -48,6 +49,7 @@ export function StopInput({ value, placeholder, onCommit }: StopInputProps) {
       onValueInput={setDraft}
       onFocus={handleFocus}
       onBlur={handleBlur}
+      onKeyDown={blurOnEnter}
     />
   )
 }

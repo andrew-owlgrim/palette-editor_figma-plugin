@@ -66,29 +66,34 @@ export function ShadesSection() {
           rows.map((row) => {
             const paletteColor = keyColors.find((k) => k.id === row.id)
             const active = editingId === row.id
-            return (
-              <Fragment key={row.id}>
-                <div
-                  class={active ? `${styles.row} ${styles.rowActive}` : styles.row}
-                  style={columns}
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => toggleEditing(row.id)}
-                  onKeyDown={(event) => {
-                    if (event.key === 'Enter' || event.key === ' ') {
-                      event.preventDefault()
-                      toggleEditing(row.id)
-                    }
-                  }}
-                >
-                  {row.colors.map((hex, i) => (
-                    <div key={i} class={styles.swatch} style={{ backgroundColor: hex }} />
-                  ))}
-                </div>
-                {active && paletteColor !== undefined ? (
-                  <GradientEditor paletteColor={paletteColor} />
-                ) : null}
-              </Fragment>
+            const swatchRow = (
+              <div
+                class={styles.row}
+                style={columns}
+                role="button"
+                tabIndex={0}
+                onClick={() => toggleEditing(row.id)}
+                onKeyDown={(event) => {
+                  if (event.key === 'Enter' || event.key === ' ') {
+                    event.preventDefault()
+                    toggleEditing(row.id)
+                  }
+                }}
+              >
+                {row.colors.map((hex, i) => (
+                  <div key={i} class={styles.swatch} style={{ backgroundColor: hex }} />
+                ))}
+              </div>
+            )
+            // Active rows fold the swatch row and its editor into one full-bleed
+            // secondary panel; inactive rows render the swatch row on its own.
+            return active && paletteColor !== undefined ? (
+              <div key={row.id} class={styles.expanded}>
+                {swatchRow}
+                <GradientEditor paletteColor={paletteColor} />
+              </div>
+            ) : (
+              <Fragment key={row.id}>{swatchRow}</Fragment>
             )
           })
         ) : (

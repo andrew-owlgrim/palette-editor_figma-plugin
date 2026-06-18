@@ -1,14 +1,19 @@
+/* Horizontal inset shared by every full-width child (header, step row, swatch
+   rows, gradient editor). Kept off the section/scroller so hover + the active
+   panel can bleed edge-to-edge while content stays aligned to this inset. */
 .section {
+  --shades-inset: 12px;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
+  padding: 12px 0;
 }
 
 .header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 0 var(--shades-inset);
 }
 
 .title {
@@ -29,14 +34,15 @@
 .steps {
   display: grid;
   gap: 4px;
+  padding: 0 var(--shades-inset);
 }
 
-/* One clickable row of swatches per key color. Vertical-only padding keeps the
-   columns aligned with the step row while giving the hover fill some bleed. */
+/* One clickable row of swatches per key color. Horizontal padding holds the
+   columns on the shared inset while the hover/active fill bleeds full width. */
 .row {
   display: grid;
   gap: 4px;
-  padding: 4px 0;
+  padding: 4px var(--shades-inset);
   border-radius: 6px;
   cursor: pointer;
 }
@@ -45,9 +51,15 @@
   background-color: var(--figma-color-bg-hover);
 }
 
-.rowActive,
-.rowActive:hover {
+/* Expanded block: the active swatch row + its gradient editor share one
+   full-bleed secondary panel (children carry the inset). */
+.expanded {
   background-color: var(--figma-color-bg-secondary);
+}
+
+.expanded .row,
+.expanded .row:hover {
+  background-color: transparent;
 }
 
 .swatch {
@@ -72,5 +84,5 @@
 .empty {
   font-size: 11px;
   color: var(--figma-color-text-secondary);
-  padding: 16px 0;
+  padding: 16px var(--shades-inset);
 }
