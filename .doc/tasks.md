@@ -4,6 +4,18 @@ Volatile working state. Last updated: 2026-06-19.
 
 ## Done
 
+- **Multiple palettes — document palette + per-user library** (ADR-026/027): the
+  editor now edits one *active* palette, switched in a header `PaletteSwitcher`
+  (chevron + name; Current file / Saved palettes popover; delete-confirm Modal).
+  Identity (`id`/`name`/`updatedAt`) wraps the body. Document palette unchanged in
+  `sharedPluginData` (id = `figma.root.id`, name = file name, read-only, passed as
+  props → no schema migration); user palettes + prefs + per-file active pointers in
+  one `clientStorage` `UserLibrary` (async, `loading`, version-gated, mutex'd
+  writes + quota guard). New `store/library.ts` (plain zustand: library state +
+  debounced save router that routes by `activeRef.kind` and dedupes on the
+  serialized body) and `store/prefs.ts` (user-global `inputColorModel` holder,
+  split from `Settings`, re-derives channels under temporal pause → not undoable).
+  `selectPalette` flushes pending save, hydrates, `temporal.clear()`s, re-baselines.
 - **Image color extraction** (ADR-025): an image button in the Key colors header
   opens an intake modal (drag / click-upload / paste / direct URL), then a
   full-area workspace (image + count stepper + 2-col swatch grid + submit/cancel)
@@ -108,5 +120,6 @@ Volatile working state. Last updated: 2026-06-19.
 ## Backlog / ideas
 
 - Palette generation from key colors (scales / harmonies) — additional body blocks.
-- Per-user palettes across files (via `clientStorage`; wrappers already exist).
+- "Publish to document" cross-action + a variables-only-from-document invariant
+  (deferred from ADR-026; export currently runs on the active palette).
 - Possibly: live concurrent multi-user sync (currently load-on-open only).

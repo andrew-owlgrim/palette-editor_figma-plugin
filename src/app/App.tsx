@@ -8,65 +8,54 @@ import { KeyColorsSection } from '@/components/KeyColors/KeyColorsSection'
 import { ShadesSection } from '@/components/Shades/ShadesSection'
 import { usePaletteStore } from '@/store'
 import { useExtractorStore } from '@/store/extractor'
+import { flushSave, resetSaveBaseline, scheduleSave, useLibraryStore } from '@/store/library'
 import { useSelectionStore } from '@/store/selection'
 import type {
   PersistedDocument,
   RequestSelectionFillsHandler,
-  SaveDocumentHandler,
+  RequestUserLibraryHandler,
   SelectionFillsHandler,
+  UserLibraryHandler,
 } from '@/types'
 import styles from './App.css'
 
 interface AppProps {
   initialDocument?: PersistedDocument | null
+  documentId?: string
+  documentName?: string
 }
-
-const SAVE_DEBOUNCE_MS = 400
 
 function isValidDocument(value: PersistedDocument | null | undefined): value is PersistedDocument {
   return value != null && Array.isArray(value.keyColors) && value.settings != null
 }
 
-export function App({ initialDocument }: AppProps) {
+export function App({ initialDocument, documentId = '', documentName = '' }: AppProps) {
   useEffect(() => {
-    // Hydrate from the file-persisted document first, then reset the undo
-    // history so the loaded state is the baseline. Doing this before attaching
-    // the save subscription prevents the hydration from being saved back (echo).
+    // Seed the library store's document identity (active = document by default),
+    // then hydrate the palette store from the file-persisted document and clear
+    // undo so the loaded state is the baseline. Baseline the save dedupe before
+    // subscribing so the hydration isn't echoed back as a save.
+    useLibraryStore.getState().initFromProps(initialDocument, documentId, documentName)
     if (isValidDocument(initialDocument)) {
       usePaletteStore.getState().hydrate(initialDocument)
       usePaletteStore.temporal.getState().clear()
     }
+    resetSaveBaseline()
+    const unsubscribe = usePaletteStore.subscribe(() => scheduleSave())
 
-    let timeoutId: ReturnType<typeof setTimeout> | undefined
-    const unsubscribe = usePaletteStore.subscribe((state) => {
-      if (timeoutId !== undefined) clearTimeout(timeoutId)
-      timeoutId = setTimeout(() => {
-        emit<SaveDocumentHandler>('SAVE_DOCUMENT', {
-          // Persist the gradient (stops + keyStopId) + custom name; channels and
-          // auto names are re-derived on load.
-          keyColors: state.keyColors.map(({ id, customName, autoName, keyStopId, stops }) => ({
-            id,
-            customName,
-            autoName,
-            keyStopId,
-            stops: stops.map(({ id, position, color, autoPosition }) => ({
-              id,
-              position,
-              color,
-              autoPosition,
-            })),
-          })),
-          settings: state.settings,
-          shades: state.shades,
-        })
-      }, SAVE_DEBOUNCE_MS)
+    // The user library is async (clientStorage), so it can't ride the synchronous
+    // showUI props — request it over the bridge and apply it when it arrives.
+    const offLibrary = on<UserLibraryHandler>('USER_LIBRARY', ({ library }) => {
+      useLibraryStore.getState().receiveLibrary(library)
     })
+    emit<RequestUserLibraryHandler>('REQUEST_USER_LIBRARY')
 
     return () => {
-      if (timeoutId !== undefined) clearTimeout(timeoutId)
+      flushSave()
       unsubscribe()
+      offLibrary()
     }
-  }, [initialDocument])
+  }, [initialDocument, documentId, documentName])
 
   // Track canvas-selection fills (ephemeral, kept out of the palette store).
   useEffect(() => {

@@ -38,6 +38,7 @@ import {
   MAX_SHADE_COUNT,
   MIN_SHADE_COUNT,
 } from '@/color/shades'
+import { inputColorModel } from './prefs'
 
 let idCounter = 0
 function newId(): string {
@@ -45,11 +46,16 @@ function newId(): string {
   return `kc_${Date.now().toString(36)}_${idCounter.toString(36)}`
 }
 
+// Library palette id (distinct prefix from key-color ids for legibility).
+export function newPaletteId(): string {
+  idCounter += 1
+  return `pal_${Date.now().toString(36)}_${idCounter.toString(36)}`
+}
+
 // Default name of the variable collection "Create variables" writes into.
 export const DEFAULT_COLLECTION_NAME = 'Palette'
 
-const DEFAULT_SETTINGS: Settings = {
-  inputColorModel: 'hsl',
+export const DEFAULT_SETTINGS: Settings = {
   blendingColorModel: 'oklch',
   toneAxisDirection: 'light-dark',
   collectionName: DEFAULT_COLLECTION_NAME,
@@ -57,6 +63,12 @@ const DEFAULT_SETTINGS: Settings = {
 
 function defaultSteps(): Array<number | null> {
   return new Array<number | null>(DEFAULT_SHADE_COUNT).fill(null)
+}
+
+// A fresh, empty palette body (no key colors) — used when creating a new user
+// palette from the switcher. Settings/shades start at their defaults.
+export function emptyPaletteBody(): PersistedDocument {
+  return { keyColors: [], settings: { ...DEFAULT_SETTINGS }, shades: { steps: defaultSteps() } }
 }
 
 // Build a fresh palette color (key color + its default gradient) from a color.
@@ -137,7 +149,8 @@ interface PaletteActions {
   removeStop: (pcId: string, stopId: string) => void
   setStopPosition: (pcId: string, stopId: string, position: number) => void
   setStopAutoPosition: (pcId: string, stopId: string, auto: boolean) => void
-  setInputColorModel: (model: InputColorModel) => void
+  // Re-derive all stops' channel buffers into `model` (no undo; see action).
+  rederiveAllChannels: (model: InputColorModel) => void
   setBlendingColorModel: (model: BlendingColorModel) => void
   // Set the target variable-collection name (empty reverts to the default).
   setCollectionName: (name: string) => void
@@ -163,13 +176,21 @@ export const usePaletteStore = create<PaletteStore>()(
       ...initialDocument,
 
       hydrate: (document) => {
-        // Tolerate older files missing newer settings (e.g. toneAxisDirection).
-        const settings = { ...DEFAULT_SETTINGS, ...document.settings }
+        // Tolerate older files missing newer settings; pick the three known keys
+        // explicitly so a legacy `inputColorModel` (now a global pref, ADR-027)
+        // is dropped rather than carried back into persistence.
+        const merged = { ...DEFAULT_SETTINGS, ...document.settings }
+        const settings: Settings = {
+          blendingColorModel: merged.blendingColorModel,
+          toneAxisDirection: merged.toneAxisDirection,
+          collectionName: merged.collectionName,
+        }
+        const model = inputColorModel()
         set({
           keyColors: document.keyColors.map((k) =>
             normalizePaletteColor(
               k,
-              settings.inputColorModel,
+              model,
               settings.toneAxisDirection,
               settings.blendingColorModel,
             ),
@@ -188,7 +209,7 @@ export const usePaletteStore = create<PaletteStore>()(
               ...state.keyColors,
               makePaletteColor(
                 color,
-                state.settings.inputColorModel,
+                inputColorModel(),
                 state.settings.toneAxisDirection,
                 state.settings.blendingColorModel,
               ),
@@ -205,7 +226,7 @@ export const usePaletteStore = create<PaletteStore>()(
             ...hexes.map((hex) =>
               makePaletteColor(
                 hexToColor(hex),
-                state.settings.inputColorModel,
+                inputColorModel(),
                 state.settings.toneAxisDirection,
                 state.settings.blendingColorModel,
               ),
@@ -225,7 +246,7 @@ export const usePaletteStore = create<PaletteStore>()(
             color,
             state.settings.toneAxisDirection,
             state.settings.blendingColorModel,
-            state.settings.inputColorModel,
+            inputColorModel(),
           )
           return {
             keyColors: state.keyColors.map((k) => (k.id === id ? { ...k, stops, keyStopId } : k)),
@@ -274,7 +295,7 @@ export const usePaletteStore = create<PaletteStore>()(
             const stop = k.stops.find((s) => s.id === stopId)
             if (stop === undefined) return k
             const channels = { ...stop.channels, [channelId]: value }
-            const color = channelsToColor(channels, state.settings.inputColorModel)
+            const color = channelsToColor(channels, inputColorModel())
             return {
               ...k,
               stops: setStopColor(
@@ -299,7 +320,7 @@ export const usePaletteStore = create<PaletteStore>()(
             const stop = k.stops.find((s) => s.id === stopId)
             if (stop === undefined) return k
             const channels = { ...stop.channels, ...patch }
-            const color = channelsToColor(channels, state.settings.inputColorModel)
+            const color = channelsToColor(channels, inputColorModel())
             return {
               ...k,
               stops: setStopColor(
@@ -318,7 +339,7 @@ export const usePaletteStore = create<PaletteStore>()(
       setStopFromHex: (pcId, stopId, hex) =>
         set((state) => {
           const color = hexToColor(hex)
-          const channels = colorToChannels(color, state.settings.inputColorModel)
+          const channels = colorToChannels(color, inputColorModel())
           return {
             keyColors: state.keyColors.map((k) =>
               k.id === pcId
@@ -352,7 +373,7 @@ export const usePaletteStore = create<PaletteStore>()(
               k,
               position,
               state.settings.blendingColorModel,
-              state.settings.inputColorModel,
+              inputColorModel(),
             )
             newStopId = stopId
             return { ...k, stops }
@@ -398,20 +419,18 @@ export const usePaletteStore = create<PaletteStore>()(
           ),
         })),
 
-      // Switching the input model leaves the canonical colors untouched and only
-      // re-derives each key stop's channel buffer into the new model — so a
-      // switch is fully reversible (no lossy channel->channel round-trip).
-      setInputColorModel: (model) =>
-        set((state) => {
-          if (state.settings.inputColorModel === model) return {}
-          return {
-            settings: { ...state.settings, inputColorModel: model },
-            keyColors: state.keyColors.map((k) => ({
-              ...k,
-              stops: rederiveChannels(k.stops, model),
-            })),
-          }
-        }),
+      // Re-derive every stop's channel buffer into `model`. The canonical colors
+      // are untouched, so this is lossless/reversible. The input model is a
+      // global pref, not palette data (ADR-027): the library store invokes this
+      // wrapped in temporal pause/resume, so a model switch never creates an undo
+      // entry and never alters persisted color data.
+      rederiveAllChannels: (model) =>
+        set((state) => ({
+          keyColors: state.keyColors.map((k) => ({
+            ...k,
+            stops: rederiveChannels(k.stops, model),
+          })),
+        })),
 
       // The blending model also defines the lightness metric for auto positions,
       // so switching it re-positions every auto stop (manual stops stay put).

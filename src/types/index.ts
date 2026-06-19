@@ -54,8 +54,11 @@ export interface PaletteColor {
   keyStopId: string
 }
 
+// Palette-scoped settings: they change the generated colors / export, so they
+// travel with the palette and stay under undo (ADR-027). `inputColorModel` used
+// to live here but is now a user-global pref (see `UserPrefs`) — a pure display
+// concern that must not be palette data or undo history.
 export interface Settings {
-  inputColorModel: InputColorModel
   blendingColorModel: BlendingColorModel
   toneAxisDirection: ToneAxisDirection
   // Name of the Figma variable collection that "Create variables" writes into.
@@ -109,10 +112,88 @@ export interface PersistedDocument {
   shades?: ShadeScale
 }
 
+// --- Palette identity + library (ADR-026) ----------------------------------
+// The editor always edits exactly one *active* palette, which is either the
+// single document palette (sharedPluginData, shared with the file) or one user
+// palette (clientStorage, private, available in every file).
+
+export type PaletteKind = 'document' | 'user'
+
+// A user-library palette: identity meta + a persisted body. The body mirrors
+// `PersistedDocument` (so it can be fed to the store's `hydrate`); `channels`
+// and auto names are re-derived on load exactly like the document palette.
+export interface Palette {
+  id: string
+  name: string
+  updatedAt: number
+  keyColors: PersistedPaletteColor[]
+  settings: Settings
+  shades?: ShadeScale
+}
+
+// Pointer to whichever palette is active, remembered per file. For the document
+// palette `id` is `figma.root.id` (also the `activeByDocument` key).
+export interface ActivePaletteRef {
+  kind: PaletteKind
+  id: string
+}
+
+// User-scoped preferences: global (every file), not per palette, not undoable.
+export interface UserPrefs {
+  inputColorModel: InputColorModel
+}
+
+// The whole per-user library, persisted as one `clientStorage` entry.
+export interface UserLibrary {
+  // Schema version; hydration is gated on it for future migrations. Start at 1.
+  version: number
+  palettes: Palette[]
+  prefs: UserPrefs
+  // Active-palette pointer per file, keyed by `figma.root.id`.
+  activeByDocument: Record<string, ActivePaletteRef>
+}
+
 // UI -> main: persist the document to the file's shared plugin data.
 export interface SaveDocumentHandler extends EventHandler {
   name: 'SAVE_DOCUMENT'
   handler: (document: PersistedDocument) => void
+}
+
+// UI -> main: fetch the user library from clientStorage (sent once on UI mount;
+// clientStorage is async so it can't ride the synchronous showUI props).
+export interface RequestUserLibraryHandler extends EventHandler {
+  name: 'REQUEST_USER_LIBRARY'
+  handler: () => void
+}
+
+// main -> UI: the loaded (or freshly-initialized) user library.
+export interface UserLibraryHandler extends EventHandler {
+  name: 'USER_LIBRARY'
+  handler: (data: { library: UserLibrary }) => void
+}
+
+// UI -> main: debounced upsert of one user palette into clientStorage.
+export interface SaveUserPaletteHandler extends EventHandler {
+  name: 'SAVE_USER_PALETTE'
+  handler: (data: { palette: Palette }) => void
+}
+
+// UI -> main: remove one user palette from clientStorage.
+export interface DeleteUserPaletteHandler extends EventHandler {
+  name: 'DELETE_USER_PALETTE'
+  handler: (data: { id: string }) => void
+}
+
+// UI -> main: persist the user-global prefs.
+export interface SaveUserPrefsHandler extends EventHandler {
+  name: 'SAVE_USER_PREFS'
+  handler: (data: { prefs: UserPrefs }) => void
+}
+
+// UI -> main: persist the per-document active-palette pointer.
+export interface SetActivePaletteHandler extends EventHandler {
+  name: 'SET_ACTIVE_PALETTE'
+  handler: (data: { documentId: string; ref: ActivePaletteRef }) => void
 }
 
 // main -> UI: deduped solid fills (hex) of the directly-selected nodes.

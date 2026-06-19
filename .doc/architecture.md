@@ -26,15 +26,30 @@ straight through as **props** to the root component (the toolkit's `render`
 spreads them onto the component).
 
 ```
-main.ts  ──showUI(opts,{initialDocument})──▶  App (props)
+main.ts  ──showUI(opts,{initialDocument, documentId, documentName})──▶  App (props)
    ▲                                            │
-   ├──── on('SAVE_DOCUMENT') ◀── emit('SAVE_DOCUMENT', doc)        (debounced)
+   ├──── on('SAVE_DOCUMENT') ◀── emit('SAVE_DOCUMENT', doc)        (debounced, active=document)
+   ├──── on('REQUEST_USER_LIBRARY') ◀── emit(...)                 (once, on UI mount)
+   ├──── emit('USER_LIBRARY', { library }) ──▶ on(...)            (reply: clientStorage)
+   ├──── on('SAVE_USER_PALETTE') ◀── emit(..., { palette })       (debounced, active=user)
+   ├──── on('DELETE_USER_PALETTE') ◀── emit(..., { id })          (delete-confirm)
+   ├──── on('SAVE_USER_PREFS') ◀── emit(..., { prefs })           (input-model change)
+   ├──── on('SET_ACTIVE_PALETTE') ◀── emit(..., { documentId, ref }) (palette switch)
    ├──── on('REQUEST_SELECTION_FILLS') ◀── emit(...)               (once, on UI mount)
    ├──── emit('SELECTION_FILLS', { fills }) ──▶ on(...)            (selection / page change)
    ├──── on('EXPORT_SWATCHES') ◀── emit('EXPORT_SWATCHES', palette)    (Footer button)
    ├──── on('CREATE_VARIABLES') ◀── emit('CREATE_VARIABLES', palette)  (Footer button)
    └──── on('CREATE_STYLES') ◀── emit('CREATE_STYLES', palette)        (Footer button)
 ```
+
+**Two palettes (ADR-026/027):** the editor edits exactly one *active* palette —
+either the single **document palette** (`sharedPluginData`, shared, the only source
+for variables/styles) or one **user palette** (a private library in
+`clientStorage`, available across files). Identity (`id`/`name`/`updatedAt`) wraps
+the body. The document palette's id is `figma.root.id` and its name is the file
+name (read-only) — passed as synchronous props, so the shared schema is unchanged.
+The library is async (fetched after mount, `loading` flag). `inputColorModel` is a
+**user-global pref**, not palette data and not undoable (ADR-027).
 
 ## Data model
 
@@ -62,8 +77,10 @@ interface PaletteColor {
   id: string; customName: string; autoName: boolean
   stops: GradientStop[]; keyStopId: string
 }
+// Palette-scoped only (ADR-027): these change generated colors/export, so they
+// travel with the palette + stay under undo. `inputColorModel` moved OUT — it is
+// now a user-global pref (see below).
 interface Settings {
-  inputColorModel: InputColorModel
   blendingColorModel: BlendingColorModel
   toneAxisDirection: ToneAxisDirection
   collectionName: string   // target Figma variable collection (default "Palette")
@@ -71,6 +88,17 @@ interface Settings {
 // Shade scale: per-step target on the 0..1000 axis, null = auto. (ADR-021)
 interface ShadeScale { steps: Array<number | null> }
 interface PaletteDocument { keyColors: PaletteColor[]; settings: Settings; shades: ShadeScale }
+
+// Palette identity + library (ADR-026). A `Palette` = identity + a persisted body
+// (the body mirrors `PersistedDocument`, fed to the store's `hydrate`).
+type PaletteKind = 'document' | 'user'
+interface Palette { id: string; name: string; updatedAt: number
+  keyColors: PersistedPaletteColor[]; settings: Settings; shades?: ShadeScale }
+interface ActivePaletteRef { kind: PaletteKind; id: string }   // doc id = figma.root.id
+interface UserPrefs { inputColorModel: InputColorModel }       // user-global (ADR-027)
+// One clientStorage entry; `activeByDocument` keyed by figma.root.id.
+interface UserLibrary { version: number; palettes: Palette[]; prefs: UserPrefs
+  activeByDocument: Record<string, ActivePaletteRef> }
 
 // Persisted shape: gradient `stops` (incl. `autoPosition`) + `keyStopId` +
 // `customName`/`autoName` + `shades`; per-stop `channels`/auto names re-derived on
@@ -257,7 +285,9 @@ rerolled color and reverts it to auto-name).
   going manual),
   `setKeyColorChannel` / `setKeyColorChannels` / `setKeyColorFromHex` (all set the
   key stop's color + reposition it by lightness; channels/hex re-derived).
-- `setInputColorModel` (re-derives channels from the key color), `setBlendingColorModel`,
+- `rederiveAllChannels(model)` (re-derives every stop's channel buffer into the
+  new input model — see ADR-027; invoked by the library store wrapped in temporal
+  pause/resume so it is NOT undoable), `setBlendingColorModel`,
   `setToneAxisDirection` (mirrors every gradient's stops),
   `setCollectionName(name)` (empty reverts to the `"Palette"` default).
 - `setShadeCount(n)` (resize `shades.steps`, clamp `[2,26]`, grow/trim at the end),
@@ -265,10 +295,31 @@ rerolled color and reverts it to auto-name).
 
 zundo options: `partialize` to `{ keyColors, settings, shades }` (don't track action
 functions), `equality` via `JSON.stringify` (skip identical history entries),
-`limit: 100`. **Undo/redo covers the whole document, incl. both model switches.**
+`limit: 100`. **Undo/redo covers the whole active palette body** (incl. the
+blending-model switch); the **input**-model switch is NOT undoable (ADR-027), and
+switching palettes clears history (ADR-026).
 
 `useTemporalStore(selector)` = `useStore(usePaletteStore.temporal, selector)`,
 typed over `TemporalState<PaletteDocument>`.
+
+**Palette library — `src/store/library.ts` (ADR-026):** a plain zustand store (no
+temporal) holding `palettes`, the document identity + a cached `documentBody`,
+`activeRef`, `prefs`, and a `loading` flag. Actions `selectPalette`/`createPalette`
+(empty body)/`duplicatePalette` (deep-copy + " copy")/`renamePalette`/
+`deletePalette`/`setInputColorModel` are **outside undo**. `selectPalette` flushes
+the pending save, hydrates the target body, `temporal.clear()`s, re-baselines the
+save dedupe, then persists the per-file active pointer. This module also owns the
+**save controller**: `currentPersistedBody` (the shared serialization for both
+tiers), a debounced `scheduleSave` (App subscribes), `flushSave` (force a write
+before a switch), `cancelPendingSave` (drop a deleted palette's pending write), and
+`resetSaveBaseline`. `commitSave` routes by `activeRef.kind` and **dedupes on the
+serialized body**, so a channels-only re-derivation (model switch) never writes.
+
+**Input-model holder — `src/store/prefs.ts` (ADR-027):** a tiny zustand store
+(`usePrefsStore { inputColorModel }`) the palette store reads when deriving channel
+buffers — split from the library store only to avoid an import cycle. The library
+store owns the change action + persistence; `applyInputColorModel` sets the holder
+and calls `rederiveAllChannels` under temporal pause.
 
 **Live-edit batching — `src/store/history.ts`:** `beginLiveEdit`/`endLiveEdit`
 pause zundo during a drag or field edit and commit a single pre-edit snapshot on
@@ -288,18 +339,27 @@ Per-file, **load-on-open + save-on-change** (no live concurrent multi-user sync)
 - Storage key `document`, namespace `mycolors` (alphanumeric/`_` only — ADR-009).
 - **Load:** `main.ts` reads `figma.root.getSharedPluginData` synchronously at
   startup and passes it via `showUI(opts, { initialDocument })`.
-- **Hydrate:** `App` (in a one-shot `useEffect`) hydrates the store, then calls
-  `usePaletteStore.temporal.getState().clear()` so the loaded state is the undo
-  baseline. This happens **before** the save subscription is attached, so the
-  hydration is neither saved back (no echo) nor added to history.
-- **Save:** `App` subscribes to the store, debounced 400 ms, and
-  `emit('SAVE_DOCUMENT', …)` with key colors stripped to
-  `{ id, customName, autoName, keyStopId, stops }` (channels and the resolved auto
-  name are re-derived on load). `main.ts` writes it with
-  `figma.root.setSharedPluginData`.
+- **Hydrate:** `App` (in a one-shot `useEffect`) seeds the library store identity,
+  hydrates the palette store, then calls `usePaletteStore.temporal.getState()
+  .clear()` so the loaded state is the undo baseline, and `resetSaveBaseline()`
+  before subscribing — so the hydration is neither saved back (no echo) nor added
+  to history.
+- **Save:** `App` subscribes to the store, calling the library save controller's
+  debounced `scheduleSave` (400 ms). `commitSave` serializes the body (key colors
+  stripped to `{ id, customName, autoName, keyStopId, stops }`; channels + auto
+  names re-derived on load) and routes by `activeRef.kind`: `SAVE_DOCUMENT` →
+  `figma.root.setSharedPluginData`, or `SAVE_USER_PALETTE` → the library upsert.
 
-`storage.ts` also has `clientStorage` (per-user) wrappers, currently unused —
-kept for a possible future per-user feature.
+**User palette library (ADR-026), `storage.ts` `clientStorage`:** one `library`
+entry holds `UserLibrary { version, palettes, prefs, activeByDocument }`. It's
+**async**, so `App` requests it on mount (`REQUEST_USER_LIBRARY` → `USER_LIBRARY`)
+and applies it via the library store (`receiveLibrary`: apply prefs + re-derive
+channels, resolve the active pointer, select it if it's a valid user palette).
+Reads tolerate a missing/older entry (`emptyUserLibrary`, `version`-gated); writes
+go through a serialized **mutex** (`mutateUserLibrary`) so overlapping
+upsert/prefs/active writes can't clobber, with a soft `LIBRARY_MAX_BYTES` quota
+guard (friendly `figma.notify` on overflow). `getUserData`/`setUserData` generic
+wrappers remain for ad-hoc per-user keys.
 
 ## Canvas selection — fills, eyedropper, "add matching" (ADR-016)
 
@@ -397,9 +457,11 @@ iframe may `fetch` an image URL).
 
 ```
 App (app/App.tsx)
-├── Header                 undo/redo (left) · settings gear (right)
+├── Header                 PaletteSwitcher (left) · undo/redo + settings gear (right)
+│   ├── PaletteSwitcher    chevron + active palette name; Popover (Current file / Saved palettes); delete-confirm Modal (ADR-026)
+│   │                       document name read-only; user palettes renameable inline; create/duplicate/delete
 │   └── Popover            custom anchored popover (outside-click + Esc)
-│       └── SettingsPopover  three SegmentedControls (input/blending model · tone axis) + collection-name Textbox
+│       └── SettingsPopover  input model (global, ADR-027) · blending model · tone axis · collection-name Textbox
 ├── KeyColorsSection       header: extract-from-image · add-matching (from selection) · "+" add · card list
     │                       (auto-scrolls to reveal new card(s) on add)
     │                       wraps the list in DndContext + SortableContext

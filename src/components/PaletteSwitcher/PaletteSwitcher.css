@@ -1,0 +1,124 @@
+.switcher {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+/* The active palette name. Read-only (document) and editable (user) variants
+   share the same box look so the header stays visually stable on switch. */
+.name,
+.nameInput {
+  flex: 1 1 auto;
+  min-width: 0;
+  max-width: 240px;
+  height: 28px;
+  padding: 0 8px;
+  display: flex;
+  align-items: center;
+  font-size: 12px;
+  color: var(--figma-color-text);
+  border: 1px solid transparent;
+  border-radius: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.nameInput {
+  background: var(--figma-color-bg);
+  border-color: var(--figma-color-border);
+  outline: none;
+}
+.nameInput:hover {
+  border-color: var(--figma-color-border-strong);
+}
+.nameInput:focus {
+  border-color: var(--figma-color-border-selected);
+}
+
+.menu {
+  display: flex;
+  flex-direction: column;
+  min-width: 240px;
+  margin: -4px; /* counteract Popover padding so rows reach the edges */
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 12px 4px;
+}
+
+.sectionTitle {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--figma-color-text-secondary);
+}
+
+.divider {
+  height: 1px;
+  margin: 4px 0;
+  background: var(--figma-color-border);
+}
+
+.hint {
+  padding: 4px 12px 8px;
+  font-size: 11px;
+  color: var(--figma-color-text-tertiary);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-height: 32px;
+  padding: 0 8px 0 12px;
+  cursor: pointer;
+  border-radius: 4px;
+}
+.row:hover {
+  background: var(--figma-color-bg-hover);
+}
+.active {
+  background: var(--figma-color-bg-secondary);
+}
+
+.rowName {
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--figma-color-text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Row action buttons (duplicate / delete) reveal on row hover. */
+.rowActions {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+}
+.row:hover .rowActions,
+.row:focus-within .rowActions {
+  opacity: 1;
+}
+
+.confirm {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 16px;
+  max-width: 320px;
+}
+
+.confirmActions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}

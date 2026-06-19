@@ -2,6 +2,8 @@ import { SegmentedControl, Textbox } from '@create-figma-plugin/ui'
 import type { SegmentedControlOption } from '@create-figma-plugin/ui'
 import { useState } from 'preact/hooks'
 import { DEFAULT_COLLECTION_NAME, usePaletteStore } from '@/store'
+import { useLibraryStore } from '@/store/library'
+import { usePrefsStore } from '@/store/prefs'
 import type { BlendingColorModel, InputColorModel, ToneAxisDirection } from '@/types'
 import styles from './SettingsPopover.css'
 
@@ -51,17 +53,22 @@ function CollectionNameField() {
 }
 
 export function SettingsPopover() {
-  const inputColorModel = usePaletteStore((s) => s.settings.inputColorModel)
+  // Input model is a user-GLOBAL pref (applies across palettes, not undoable —
+  // ADR-027); the rest are palette-scoped and travel with the active palette.
+  const inputColorModel = usePrefsStore((s) => s.inputColorModel)
+  const setInputColorModel = useLibraryStore((s) => s.setInputColorModel)
   const blendingColorModel = usePaletteStore((s) => s.settings.blendingColorModel)
   const toneAxisDirection = usePaletteStore((s) => s.settings.toneAxisDirection)
-  const setInputColorModel = usePaletteStore((s) => s.setInputColorModel)
   const setBlendingColorModel = usePaletteStore((s) => s.setBlendingColorModel)
   const setToneAxisDirection = usePaletteStore((s) => s.setToneAxisDirection)
 
   return (
     <div class={styles.settings}>
       <div class={styles.field}>
-        <div class={styles.label}>Input color model</div>
+        <div class={styles.label}>
+          Input color model
+          <span class={styles.scope}>all palettes</span>
+        </div>
         <div class={styles.control}>
           <SegmentedControl
             options={INPUT_MODEL_OPTIONS}
@@ -70,6 +77,7 @@ export function SettingsPopover() {
           />
         </div>
       </div>
+      <div class={styles.divider} />
       <div class={styles.field}>
         <div class={styles.label}>Blending color model</div>
         <div class={styles.control}>

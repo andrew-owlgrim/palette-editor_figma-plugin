@@ -9,7 +9,7 @@
     "format": "prettier --write \"src/**/*.{ts,tsx}\""
   },
   "figma-plugin": {
-    "id": "",
+    "id": "my-colors-dev",
     "name": "My Colors",
     "editorType": [
       "figma"

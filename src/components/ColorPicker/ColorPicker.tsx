@@ -22,6 +22,7 @@ import { colorToHex, MODELS } from '@/color/models'
 import { keyColorOf, keyStopOf } from '@/color/gradient'
 import { usePaletteStore } from '@/store'
 import { beginLiveEdit, endLiveEdit } from '@/store/history'
+import { usePrefsStore } from '@/store/prefs'
 import type { ColorChannels, InputColorModel, PaletteColor } from '@/types'
 import styles from './ColorPicker.css'
 
@@ -42,7 +43,7 @@ interface ColorPickerProps {
 // Closed via outside-click or a re-click on the swatch (handled by the Popover /
 // host card) — no explicit close button.
 export function ColorPicker({ paletteColorId, stopId, surface = 'wheel' }: ColorPickerProps) {
-  const model = usePaletteStore((s) => s.settings.inputColorModel)
+  const model = usePrefsStore((s) => s.inputColorModel)
   const keyColors = usePaletteStore((s) => s.keyColors)
   const setStopChannel = usePaletteStore((s) => s.setStopChannel)
   const setStopChannels = usePaletteStore((s) => s.setStopChannels)

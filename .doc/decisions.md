@@ -418,3 +418,72 @@ Amends ADR-011/ADR-014.
 - **Consequence/constraint:** no new color logic or messaging on the main side;
   URL extraction depends on the host's CORS policy (drag/upload/paste are the
   reliable paths); results are stable but not bit-for-bit reproducible.
+
+## ADR-026 — Palette identity + user library (document palette + per-user library)
+
+- **Context:** the file had exactly one palette in `sharedPluginData`, shared by
+  everyone. Users want a private library of palettes (a sandbox), available across
+  files, while the file's palette stays the single shared source for
+  variables/styles. The editor must always edit exactly one *active* palette.
+- **Decision:** wrap the existing palette body (`{ keyColors, settings, shades }`)
+  in **identity** (`id`, `name`, `updatedAt`) and split storage into two tiers:
+  - **Document palette** — one per file, in `sharedPluginData` (unchanged
+    behaviour; still the only source for Create variables/styles). Its identity is
+    **not persisted in the body**: id = `figma.root.id` (stable, no migration), name
+    = `figma.root.name` (read-only — the file name communicates "the file's
+    palette", §8.3). Both are passed as synchronous `showUI` props. So the shared
+    document schema is **unchanged** — maximally backward-compatible.
+  - **User library** — N palettes + global prefs + per-file active pointers, in one
+    `clientStorage` entry (`UserLibrary { version, palettes, prefs,
+    activeByDocument }`, keyed by `figma.root.id`). Private, async, fetched over the
+    bridge after mount (it can't ride the synchronous props), with a `loading` flag.
+  - **Two runtime stores:** `usePaletteStore` (existing zustand + zundo temporal)
+    holds the active body; `useLibraryStore` (plain zustand, no temporal) holds the
+    library, document identity + a cached document body, the active ref, and prefs.
+    Library mutations (create/duplicate/rename/delete/switch) are **outside undo**;
+    switching palettes `temporal.clear()`s history by design. `createPalette` makes
+    an **empty** body (chosen default); `duplicate` deep-copies + appends " copy".
+  - **Save routing + dedupe:** the save controller (in `store/library.ts`) routes
+    each debounced commit to `SAVE_DOCUMENT` (shared data) or `SAVE_USER_PALETTE`
+    (clientStorage) by `activeRef.kind`, and **dedupes on the serialized body** so a
+    channels-only re-derivation (model switch, ADR-027) never writes / bumps
+    `updatedAt`. `selectPalette` **flushes** the pending save first so no write lands
+    on the wrong target, then hydrates + clears history + re-baselines the dedupe.
+    Deleting the active palette **cancels** (not flushes) its pending save to avoid a
+    resurrection race, then falls back to the document palette.
+  - **clientStorage writes are serialized** through a promise chain (mutex) so
+    overlapping upsert/prefs/active writes can't clobber, with a soft `LIBRARY_MAX_
+    BYTES` quota guard (friendly notify on overflow). `UserLibrary.version` gates a
+    future migration switch.
+- **Consequence/constraint:** the document palette is unchanged for existing files
+  (no data migration); the library is greenfield. Out of scope (deferred): a
+  "publish to document" cross-action + a variables-only-from-document invariant
+  (export still runs on the active palette); cross-user/library sync; carrying
+  `collectionName` on publish. Switching palettes always clears undo (intentional).
+
+## ADR-027 — Settings scope split (palette-scoped vs user-global `inputColorModel`)
+
+Amends ADR-006 (undo no longer covers the input-model switch).
+
+- **Context:** `inputColorModel` lived in the palette `Settings` and was a normal
+  undoable action (ADR-006). But it's a pure **display/editing** concern — it never
+  changes a stop's canonical `color` — so making it palette data (and undoable, and
+  shared via the document) is wrong once palettes multiply.
+- **Decision:** split `Settings`. `blendingColorModel` / `toneAxisDirection` stay
+  **palette-scoped** (they change generated colors → travel with the palette, stay
+  under undo); `collectionName` stays too (MVP simplification). `inputColorModel`
+  becomes a **user-global pref** in `UserLibrary.prefs`, surfaced through a tiny
+  `store/prefs.ts` holder (`usePrefsStore`) that the palette store reads when
+  deriving channel buffers — kept separate from `useLibraryStore` purely to avoid an
+  import cycle (the library store owns the change action + persistence). Switching
+  the model: `applyInputColorModel` sets the holder and re-derives every stop's
+  `channels` via the palette store's `rederiveAllChannels`, wrapped in
+  `temporal.pause()/resume()` so it creates **no undo entry**; the persisted body is
+  unchanged so the save dedupe skips it (ADR-026). Channels stay **derive-on-read**
+  from `color` at the model's display precision (`models.ts` `fmt`), so values don't
+  drift on re-derivation. Migration: a legacy `inputColorModel` on a loaded document
+  is dropped on hydrate; the pref seeds from the library, else the default `'hsl'`,
+  else (first-run nicety) the legacy document value.
+- **Consequence/constraint:** the model choice persists across palettes and files,
+  never touches color data or undo history. The runtime per-stop `channels` buffer
+  is **kept** (removing it is a separable refactor, explicitly out of scope).

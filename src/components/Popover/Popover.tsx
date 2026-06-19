@@ -25,6 +25,10 @@ interface PopoverProps {
   anchorRef?: AnchorRef
   placement?: Placement
   offset?: number
+  // For the CSS-anchored default (no `anchorRef`): which container edge to align
+  // the popover to. 'right' (default) keeps the existing below-right behavior;
+  // 'left' anchors below-left (used by a trigger sitting at the window's left).
+  align?: 'left' | 'right'
   children: ComponentChildren
 }
 
@@ -35,6 +39,7 @@ export function Popover({
   anchorRef,
   placement = 'right-top',
   offset = 8,
+  align = 'right',
   children,
 }: PopoverProps) {
   const [position, setPosition] = useState<{ left: number; top: number } | null>(null)
@@ -118,5 +123,9 @@ export function Popover({
       </div>
     )
   }
-  return <div class={styles.popover}>{children}</div>
+  return (
+    <div class={styles.popover} style={align === 'left' ? { left: 0, right: 'auto' } : undefined}>
+      {children}
+    </div>
+  )
 }

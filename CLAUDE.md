@@ -37,10 +37,13 @@ superseded/removed entry to a one-line tombstone instead of deleting it.
 - `src/color/export.ts` — resolve palette → flat `ExportPalette` for canvas/variables/styles export (ADR-024)
 - `src/color/extract.ts` — k-means++ (OKLab) image color extraction, best-of-N restarts (ADR-025)
 - `src/components/ColorExtractor/` — image→palette UI: intake modal + full-area workspace (ADR-025)
-- `src/store/index.ts` — zustand + zundo store (the palette document)
+- `src/store/index.ts` — zustand + zundo store (the active palette body)
+- `src/store/library.ts` — palette library + active ref + debounced save router (ADR-026)
+- `src/store/prefs.ts` — user-global `inputColorModel` holder (ADR-027)
 - `src/store/selection.ts` — ephemeral canvas-selection fills (out of undo/persist)
 - `src/store/extractor.ts` — ephemeral image-extractor stage machine (out of undo/persist)
-- `src/utils/storage.ts` — `clientStorage` / `sharedPluginData` wrappers
+- `src/components/PaletteSwitcher/` — header palette switcher + delete-confirm modal (ADR-026)
+- `src/utils/storage.ts` — `clientStorage` (user library) / `sharedPluginData` (document) wrappers
 - `src/utils/image.ts` — decode + downsample File/Blob/URL → pixels for extraction (ADR-025)
 - `src/types/` — domain types + ambient `*.svg` / `*.css` declarations
 
@@ -66,6 +69,12 @@ superseded/removed entry to a one-line tombstone instead of deleting it.
   from React conventions (e.g. `onValueInput`, `onValueChange`, icons are `Icon…24`).
 - **`sharedPluginData` namespace** must be alphanumeric / `_` only (no `-`).
   Currently `mycolors` (ADR-009).
+- **`clientStorage` needs a non-empty manifest `id`** — `figma.clientStorage`
+  throws "Cannot access client storage without a plugin ID" if `figma-plugin.id`
+  in `package.json` is `""`. Dev id is `my-colors-dev`; replace with the real id
+  on publish (clientStorage data is keyed by id, so it won't carry over).
+  `sharedPluginData` (the document palette) does NOT need an id — that's why only
+  the user library broke. Re-import the manifest in Figma after changing the id.
 - Do **not** run `npm audit fix --force` — it downgrades esbuild and breaks the
   build. The flagged esbuild Deno-RCE advisory doesn't apply (we don't use Deno).
 - Generated `*.css.d.ts` are git/lint/prettier-ignored — don't edit or commit them.

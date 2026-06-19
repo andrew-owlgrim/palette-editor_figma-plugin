@@ -2,14 +2,29 @@ import { emit, on, showUI } from '@create-figma-plugin/utilities'
 import type {
   CreateStylesHandler,
   CreateVariablesHandler,
+  DeleteUserPaletteHandler,
   ExportPalette,
   ExportSwatchesHandler,
   PersistedDocument,
   RequestSelectionFillsHandler,
+  RequestUserLibraryHandler,
   SaveDocumentHandler,
+  SaveUserPaletteHandler,
+  SaveUserPrefsHandler,
   SelectionFillsHandler,
+  SetActivePaletteHandler,
+  UserLibraryHandler,
 } from '@/types'
-import { getFileData, setFileData } from '@/utils/storage'
+import {
+  deleteUserPalette,
+  emptyUserLibrary,
+  getFileData,
+  getUserLibrary,
+  saveUserPrefs,
+  setActivePalette,
+  setFileData,
+  upsertUserPalette,
+} from '@/utils/storage'
 
 const DOCUMENT_KEY = 'document'
 
@@ -157,6 +172,37 @@ export default function () {
     setFileData(DOCUMENT_KEY, document)
   })
 
+  // ── User palette library (clientStorage, async) ──────────────────────────
+  // The document palette rides the synchronous showUI props; the library can't
+  // (clientStorage is async), so the UI requests it once on mount and we reply.
+  on<RequestUserLibraryHandler>('REQUEST_USER_LIBRARY', () => {
+    void getUserLibrary()
+      .then((library) => {
+        emit<UserLibraryHandler>('USER_LIBRARY', { library })
+      })
+      .catch((error: unknown) => {
+        // clientStorage can be unavailable (e.g. an empty manifest plugin id) —
+        // still reply (with an empty library) so the UI leaves its loading state
+        // and stays usable in-memory, and surface the reason once.
+        figma.notify(`Couldn't load palette library: ${String(error)}`, { error: true })
+        emit<UserLibraryHandler>('USER_LIBRARY', { library: emptyUserLibrary() })
+      })
+  })
+  on<SaveUserPaletteHandler>('SAVE_USER_PALETTE', ({ palette }) => {
+    void upsertUserPalette(palette).catch((error: unknown) => {
+      figma.notify(String(error instanceof Error ? error.message : error), { error: true })
+    })
+  })
+  on<DeleteUserPaletteHandler>('DELETE_USER_PALETTE', ({ id }) => {
+    void deleteUserPalette(id)
+  })
+  on<SaveUserPrefsHandler>('SAVE_USER_PREFS', ({ prefs }) => {
+    void saveUserPrefs(prefs)
+  })
+  on<SetActivePaletteHandler>('SET_ACTIVE_PALETTE', ({ documentId, ref }) => {
+    void setActivePalette(documentId, ref)
+  })
+
   on<ExportSwatchesHandler>('EXPORT_SWATCHES', exportSwatches)
   on<CreateVariablesHandler>('CREATE_VARIABLES', (palette) => {
     void createVariables(palette).catch((error: unknown) => {
@@ -178,7 +224,12 @@ export default function () {
   on<RequestSelectionFillsHandler>('REQUEST_SELECTION_FILLS', sendSelectionFills)
 
   // sharedPluginData reads are synchronous, so we can hand the stored document
-  // straight to the UI as initial props.
+  // straight to the UI as initial props. The document palette's identity isn't
+  // persisted in the body — its id is the (stable) `figma.root.id` and its name
+  // is the file name (read-only, ADR-026/8.3) — so we pass both alongside.
   const document = getFileData<PersistedDocument>(DOCUMENT_KEY)
-  showUI({ width: 720, height: 640 }, { initialDocument: document })
+  showUI(
+    { width: 720, height: 640 },
+    { initialDocument: document, documentId: figma.root.id, documentName: figma.root.name },
+  )
 }

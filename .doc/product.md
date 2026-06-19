@@ -14,14 +14,30 @@ spaces and keeping the result available to everyone editing the same file.
 
 ## Who sees what
 
-- **Per-file palette.** The palette is stored in the Figma file. Anyone who
-  opens the plugin in that file sees the same palette. (Persisted via
-  `sharedPluginData`; loaded when the plugin opens.)
-- Per-user palettes (across files, via `clientStorage`) are a possible future
-  addition — not built yet.
+The editor always edits exactly one **active** palette, picked in the header
+switcher. There are two kinds:
+
+- **Document palette** — stored in the Figma file (`sharedPluginData`). Anyone who
+  opens the plugin in that file sees it, and it's the source for Create
+  variables/styles. Its name is the file name (read-only). Exactly one per file.
+- **User palettes** — a private library stored per user (`clientStorage`),
+  available in every file — a sandbox for experiments that others don't see. You
+  can create, rename, duplicate, and delete them.
+
+The **input color model** is a single per-user preference (it applies to every
+palette and isn't part of any palette's data or undo history).
 
 ## Current features
 
+- **Palette switcher** (header, top-left) — a chevron + the active palette's name.
+  Opening it lists the **Current file** palette (the document palette, labelled by
+  the file name) and your **Saved palettes** library, with a "+" to create a new
+  (empty) palette; each saved row reveals duplicate and delete on hover. Selecting a
+  row switches the editor to that palette. The active user palette's name is
+  editable in the header (the document palette's is read-only). Deleting a saved
+  palette asks to confirm (it bypasses undo); deleting the active one falls back to
+  the document palette. Switching palettes is instant and never loses a pending
+  edit, but it does reset that palette's undo history.
 - **Key colors** — a horizontally scrolling list of color cards. Each card has:
   - a square color sample — click opens a **custom color picker** in a popover
     (hue wheel, lightness slider, hex field, and per-channel inputs in the
@@ -64,10 +80,12 @@ spaces and keeping the result available to everyone editing the same file.
   **saturation/lightness square + hue slider**, with the gradient's other stops
   marked on the square so the tonal progression is visible.
 - **Settings popover** (gear icon, top-right):
-  - **Input color model** — `HSL` / `HSV` / `LCH`. Switching it recomputes every
-    key color's channel values into the new model.
-  - **Blending color model** — `RGB` / `HSL` / `OKLCH`. The model the shade
-    gradient is interpolated in.
+  - **Input color model** — `HSL` / `HSV` / `LCH`, labelled *all palettes*. A
+    user-global preference: switching it recomputes every key color's channel
+    values into the new model (across all palettes) without touching any color and
+    without an undo entry.
+  - **Blending color model** — `RGB` / `HSL` / `OKLCH` / `LCH`. The model the shade
+    gradient is interpolated in (palette-scoped).
   - **Tone axis direction** — `Dark → Light` / `Light → Dark`. Which end of the
     shade scale (step 0) is light; flipping it mirrors every gradient.
   - **Variable collection** — name of the Figma variable collection that **Create
@@ -82,9 +100,12 @@ spaces and keeping the result available to everyone editing the same file.
   - **Create swatches** — drops the palette on the canvas as a grid of 40×40
     rectangles (8px gap, one row per key color), named `{name}/{step}`, wrapped in
     a frame.
-- **Undo / redo** (top-left) — covers the whole palette document, including color
-  edits and color-model switches.
-- **Per-file persistence** — changes are saved to the file automatically.
+- **Undo / redo** (top-right) — covers the whole active palette body, including
+  color edits and the blending-model switch (the input-model switch and
+  library actions like switching palettes are not undoable).
+- **Automatic persistence** — edits to the document palette save to the file; edits
+  to a user palette save to your private library. Reopening a file restores the
+  palette that was active there.
 
 ## UX intentions
 

@@ -11,9 +11,31 @@
 }
 
 .label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   font-size: 11px;
   font-weight: 600;
   color: var(--figma-color-text-secondary);
+}
+
+/* Marks a control whose scope differs from the palette-scoped majority (the
+   input model is user-global). Subtle pill so the distinction is legible. */
+.scope {
+  font-size: 9px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 1px 5px;
+  border-radius: 999px;
+  color: var(--figma-color-text-secondary);
+  background: var(--figma-color-bg-secondary);
+}
+
+/* Separates the global input model from the palette-scoped settings below. */
+.divider {
+  height: 1px;
+  background: var(--figma-color-border);
 }
 
 /* SegmentedControl spreads extra props onto its <input>, so we cannot set a

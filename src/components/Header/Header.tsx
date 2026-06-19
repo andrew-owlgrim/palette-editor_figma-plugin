@@ -5,6 +5,7 @@ import {
   IconSettings24,
 } from '@create-figma-plugin/ui'
 import { useRef, useState } from 'preact/hooks'
+import { PaletteSwitcher } from '@/components/PaletteSwitcher/PaletteSwitcher'
 import { Popover } from '@/components/Popover/Popover'
 import { SettingsPopover } from '@/components/SettingsPopover/SettingsPopover'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
@@ -22,6 +23,8 @@ export function Header() {
 
   return (
     <header class={styles.header}>
+      <PaletteSwitcher />
+
       <div class={styles.actions}>
         <Tooltip content="Undo">
           <IconButton onClick={() => undo()} disabled={canUndo === false}>
@@ -33,21 +36,21 @@ export function Header() {
             <IconNavigateForward24 />
           </IconButton>
         </Tooltip>
-      </div>
 
-      <div class={styles.settingsAnchor} ref={anchorRef}>
-        <Tooltip content="Settings">
-          <IconButton onClick={() => setSettingsOpen((open) => !open)}>
-            <IconSettings24 />
-          </IconButton>
-        </Tooltip>
-        <Popover
-          open={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          containerRef={anchorRef}
-        >
-          <SettingsPopover />
-        </Popover>
+        <div class={styles.settingsAnchor} ref={anchorRef}>
+          <Tooltip content="Settings">
+            <IconButton onClick={() => setSettingsOpen((open) => !open)}>
+              <IconSettings24 />
+            </IconButton>
+          </Tooltip>
+          <Popover
+            open={settingsOpen}
+            onClose={() => setSettingsOpen(false)}
+            containerRef={anchorRef}
+          >
+            <SettingsPopover />
+          </Popover>
+        </div>
       </div>
     </header>
   )
