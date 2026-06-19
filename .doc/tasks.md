@@ -4,6 +4,12 @@ Volatile working state. Last updated: 2026-06-19.
 
 ## Done
 
+- **Import colors from another palette** (ADR-028): a library `IconButton` in the
+  Key colors header → a Figma-style **inverted dropdown** of the other palettes →
+  a `Modal` reusing the extractor `Swatch` grid (all-on, no image/stepper). Imports
+  **whole `PaletteColor`s** (full gradient + name), deep-cloned with fresh ids in
+  one undo step; duplicates allowed. New pure `toRuntimeColors(body)` + store
+  `importPaletteColors(colors)`; UI-thread only, no new bridge messages.
 - **Multiple palettes — document palette + per-user library** (ADR-026/027): the
   editor now edits one *active* palette, switched in a header `PaletteSwitcher`
   (chevron + name; Current file / Saved palettes popover; delete-confirm Modal).

@@ -17,16 +17,19 @@ import type { DragEndEvent, DragStartEvent } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy } from '@dnd-kit/sortable'
 import { KeyColorCard } from './KeyColorCard'
 import { KeyColorCardPreview } from './KeyColorCardPreview'
+import { PaletteImport } from '@/components/PaletteImport/PaletteImport'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { usePaletteStore } from '@/store'
 import { useExtractorStore } from '@/store/extractor'
 import { useSelectionStore } from '@/store/selection'
+import type { PaletteColor } from '@/types'
 import styles from './KeyColorsSection.css'
 
 export function KeyColorsSection() {
   const keyColors = usePaletteStore((s) => s.keyColors)
   const addKeyColor = usePaletteStore((s) => s.addKeyColor)
   const addKeyColors = usePaletteStore((s) => s.addKeyColors)
+  const importPaletteColors = usePaletteStore((s) => s.importPaletteColors)
   const moveKeyColor = usePaletteStore((s) => s.moveKeyColor)
   const selectionFills = useSelectionStore((s) => s.fills)
   const openExtractor = useExtractorStore((s) => s.open)
@@ -62,6 +65,11 @@ export function KeyColorsSection() {
     addKeyColors(selectionFills)
   }
 
+  function handleImport(colors: PaletteColor[]) {
+    scrollToEndRef.current = true
+    importPaletteColors(colors)
+  }
+
   function handleDragStart(event: DragStartEvent) {
     setActiveId(String(event.active.id))
   }
@@ -82,6 +90,7 @@ export function KeyColorsSection() {
       <div class={styles.header}>
         <span class={styles.title}>Key colors</span>
         <div class={styles.actions}>
+          <PaletteImport onImport={handleImport} />
           <Tooltip content="Extract colors from image">
             <IconButton onClick={openExtractor}>
               <IconImageSmall24 />

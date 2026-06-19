@@ -64,44 +64,47 @@ export function SettingsPopover() {
 
   return (
     <div class={styles.settings}>
-      <div class={styles.field}>
-        <div class={styles.label}>
-          Input color model
-          <span class={styles.scope}>all palettes</span>
+      <section class={styles.section}>
+        <div class={styles.sectionTitle}>User settings</div>
+        <div class={styles.field}>
+          <div class={styles.label}>Input color model</div>
+          <div class={styles.control}>
+            <SegmentedControl
+              options={INPUT_MODEL_OPTIONS}
+              value={inputColorModel}
+              onValueChange={(value) => setInputColorModel(value as InputColorModel)}
+            />
+          </div>
         </div>
-        <div class={styles.control}>
-          <SegmentedControl
-            options={INPUT_MODEL_OPTIONS}
-            value={inputColorModel}
-            onValueChange={(value) => setInputColorModel(value as InputColorModel)}
-          />
+      </section>
+
+      <section class={styles.section}>
+        <div class={styles.sectionTitle}>Palette settings</div>
+        <div class={styles.field}>
+          <div class={styles.label}>Blending color model</div>
+          <div class={styles.control}>
+            <SegmentedControl
+              options={BLENDING_MODEL_OPTIONS}
+              value={blendingColorModel}
+              onValueChange={(value) => setBlendingColorModel(value as BlendingColorModel)}
+            />
+          </div>
         </div>
-      </div>
-      <div class={styles.divider} />
-      <div class={styles.field}>
-        <div class={styles.label}>Blending color model</div>
-        <div class={styles.control}>
-          <SegmentedControl
-            options={BLENDING_MODEL_OPTIONS}
-            value={blendingColorModel}
-            onValueChange={(value) => setBlendingColorModel(value as BlendingColorModel)}
-          />
+        <div class={styles.field}>
+          <div class={styles.label}>Tone axis direction</div>
+          <div class={styles.control}>
+            <SegmentedControl
+              options={TONE_AXIS_OPTIONS}
+              value={toneAxisDirection}
+              onValueChange={(value) => setToneAxisDirection(value as ToneAxisDirection)}
+            />
+          </div>
         </div>
-      </div>
-      <div class={styles.field}>
-        <div class={styles.label}>Tone axis direction</div>
-        <div class={styles.control}>
-          <SegmentedControl
-            options={TONE_AXIS_OPTIONS}
-            value={toneAxisDirection}
-            onValueChange={(value) => setToneAxisDirection(value as ToneAxisDirection)}
-          />
+        <div class={styles.field}>
+          <div class={styles.label}>Variable collection</div>
+          <CollectionNameField />
         </div>
-      </div>
-      <div class={styles.field}>
-        <div class={styles.label}>Variable collection</div>
-        <CollectionNameField />
-      </div>
+      </section>
     </div>
   )
 }

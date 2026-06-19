@@ -278,6 +278,9 @@ rerolled color and reverts it to auto-name).
   add in one update = one undo step; used by "add matching"),
   `rerollKeyColor(id)` (rebuild a fresh harmonious default gradient; the name is
   kept — auto names re-derive, manual names are the user's),
+  `importPaletteColors(colors)` (append whole PaletteColors from another palette,
+  deep-cloned with fresh ids; one undo step; ADR-028 — `toRuntimeColors(body)`
+  converts a persisted body for preview/import without mutating the store),
   `removeKeyColor`, `moveKeyColor(fromId, toId)` (reorder via `arrayMove`, used
   by drag-and-drop — one update = one undo step),
   `setKeyColorName(id, name)` (pin a custom name; empty reverts to auto),
@@ -462,7 +465,8 @@ App (app/App.tsx)
 │   │                       document name read-only; user palettes renameable inline; create/duplicate/delete
 │   └── Popover            custom anchored popover (outside-click + Esc)
 │       └── SettingsPopover  input model (global, ADR-027) · blending model · tone axis · collection-name Textbox
-├── KeyColorsSection       header: extract-from-image · add-matching (from selection) · "+" add · card list
+├── KeyColorsSection       header: import-from-palette · extract-from-image · add-matching (from selection) · "+" add · card list
+│   └── PaletteImport      dark inverted dropdown of other palettes → Modal w/ all-on Swatch grid; imports whole PaletteColors (ADR-028)
     │                       (auto-scrolls to reveal new card(s) on add)
     │                       wraps the list in DndContext + SortableContext
     │                       (horizontal) for drag-reorder; DragOverlay → KeyColorCardPreview

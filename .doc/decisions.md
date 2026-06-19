@@ -487,3 +487,30 @@ Amends ADR-006 (undo no longer covers the input-model switch).
 - **Consequence/constraint:** the model choice persists across palettes and files,
   never touches color data or undo history. The runtime per-stop `channels` buffer
   is **kept** (removing it is a separable refactor, explicitly out of scope).
+
+## ADR-028 — Import colors from another palette (whole PaletteColors)
+
+Builds on ADR-026 (the library makes "another palette" a real concept).
+
+- **Context:** with multiple palettes, users want to pull colors from one into the
+  active one — the cross-palette interaction the library enables.
+- **Decision:** a library `IconButton` in the **Key colors** header opens a
+  **Figma-style inverted dropdown** (dark `#1e1e1e`, white items, `#0d99ff` accent
+  hover — hard-coded like Tooltip, since Figma menus stay dark in both themes and
+  aren't covered by `--figma-color-*`) listing every palette **except the active
+  one** (empty palettes omitted). Picking one opens a DS `Modal` that **reuses the
+  extractor's `Swatch` grid** (minus the image + count stepper): an **all-on**
+  selection (consistent with extract), toggle per swatch, Cancel / Import N.
+- **Imports the whole `PaletteColor`, not just the key color** (§4): the source
+  body is converted to runtime colors via a new pure `toRuntimeColors(body)` (the
+  same normalization `hydrate` uses, no store mutation); the picked colors are
+  appended by `importPaletteColors`, which **deep-clones each with fresh ids**
+  (color + every stop, remapping `keyStopId`) as **one undo step**. **Duplicates are
+  allowed** (§6) — no dedupe on name/value. Stop positions are imported **verbatim**
+  (they read in the source's blending model until the ramp is next edited) — the
+  literal "import the whole PaletteColor".
+- **Consequence/constraint:** preview + import share `toRuntimeColors`; the dropdown
+  is bespoke dark chrome (the shared `Popover` is light), kept local to
+  `PaletteImport`. No new bridge messages — it's all UI-thread over existing
+  library state. A different active blending model can momentarily shift imported
+  auto-stop positions until re-edited (accepted).

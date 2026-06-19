@@ -3,7 +3,7 @@
   z-index: 10;
   background-color: var(--figma-color-bg);
   border: 1px solid var(--figma-color-border);
-  border-radius: 6px;
+  border-radius: 12px;
   box-shadow:
     0 2px 4px rgba(0, 0, 0, 0.15),
     0 4px 16px rgba(0, 0, 0, 0.2);
@@ -14,7 +14,11 @@
   top: calc(100% + 4px);
   right: 0;
   min-width: 220px;
-  padding: 12px;
+  /* No padding: content owns its section padding so a section's bottom-border
+     reads as a full-width divider (only the anchored `.floating` picker keeps its
+     own internal spacing). */
+  padding: 0;
+  overflow: hidden; /* clip section corners to the popover radius */
 }
 
 /* Anchored variant: positioned (fixed) from the trigger's bounding rect, so it

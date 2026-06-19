@@ -123,10 +123,41 @@ function normalizePaletteColor(
   return { id: k.id, customName, autoName, stops, keyStopId }
 }
 
+// Convert a persisted palette body into runtime `PaletteColor`s WITHOUT touching
+// the store — the same normalization `hydrate` applies, in the global input model
+// and the body's own blending/tone settings. Used to preview + import colors from
+// OTHER palettes (ADR-028); positions are imported verbatim (per "import the whole
+// PaletteColor"), so they read in the source's blending model until re-edited.
+export function toRuntimeColors(body: PersistedDocument): PaletteColor[] {
+  const merged = { ...DEFAULT_SETTINGS, ...body.settings }
+  const model = inputColorModel()
+  return body.keyColors.map((k) =>
+    normalizePaletteColor(k, model, merged.toneAxisDirection, merged.blendingColorModel),
+  )
+}
+
+// Deep-clone a PaletteColor with fresh ids (color + the whole gradient), remapping
+// `keyStopId` to the cloned key stop. Used when importing — the copy must not
+// share ids with its source.
+function clonePaletteColor(pc: PaletteColor): PaletteColor {
+  const stops = pc.stops.map((s) => ({
+    ...s,
+    id: newId(),
+    color: { ...s.color },
+    channels: { ...s.channels },
+  }))
+  const keyIndex = pc.stops.findIndex((s) => s.id === pc.keyStopId)
+  const keyStopId = keyIndex >= 0 ? stops[keyIndex].id : stops[0].id
+  return { ...pc, id: newId(), keyStopId, stops }
+}
+
 interface PaletteActions {
   hydrate: (document: PersistedDocument) => void
   addKeyColor: () => void
   addKeyColors: (hexes: string[]) => void
+  // Append whole PaletteColors (full gradients) imported from another palette,
+  // deep-cloned with fresh ids. One update = one undo step. Duplicates allowed.
+  importPaletteColors: (colors: PaletteColor[]) => void
   // Replace one key color with a fresh random-but-harmonious one (name kept).
   rerollKeyColor: (id: string) => void
   removeKeyColor: (id: string) => void
@@ -232,6 +263,13 @@ export const usePaletteStore = create<PaletteStore>()(
               ),
             ),
           ],
+        })),
+
+      // Import whole PaletteColors from another palette (deep-cloned with fresh
+      // ids) as one undo step. Collisions in name/value are allowed — no dedupe.
+      importPaletteColors: (colors) =>
+        set((state) => ({
+          keyColors: [...state.keyColors, ...colors.map(clonePaletteColor)],
         })),
 
       // Reroll: a fresh color harmonious with the *other* key colors (self

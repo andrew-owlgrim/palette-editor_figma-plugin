@@ -59,6 +59,11 @@ palette and isn't part of any palette's data or undo history).
   an **add-matching** button (next to "+") appends every selected fill as new key
   colors. (Figma's native eyedropper isn't available to plugins, so this works off
   the selection instead.)
+- **Import from another palette** — a library button in the Key colors header opens
+  a dark dropdown of your other palettes (document + saved, minus the active one).
+  Pick one and a modal shows its colors as a swatch grid (all selected by default);
+  toggle which to bring over and Import. Each imported color carries its **whole
+  ramp** (gradient + name), not just the key color, and duplicates are allowed.
 - **Extract colors from an image** — an image button in the Key colors header
   opens a window where you drop, paste, upload, or link an image; the plugin pulls
   its dominant colors (k-means clustering). A full-area view shows the image beside
@@ -80,10 +85,10 @@ palette and isn't part of any palette's data or undo history).
   **saturation/lightness square + hue slider**, with the gradient's other stops
   marked on the square so the tonal progression is visible.
 - **Settings popover** (gear icon, top-right):
-  - **Input color model** — `HSL` / `HSV` / `LCH`, labelled *all palettes*. A
-    user-global preference: switching it recomputes every key color's channel
-    values into the new model (across all palettes) without touching any color and
-    without an undo entry.
+  - **Input color model** — `HSL` / `HSV` / `LCH`, under a *User settings* section
+    (the rest are grouped under *Palette settings*). A user-global preference:
+    switching it recomputes every key color's channel values into the new model
+    (across all palettes) without touching any color and without an undo entry.
   - **Blending color model** — `RGB` / `HSL` / `OKLCH` / `LCH`. The model the shade
     gradient is interpolated in (palette-scoped).
   - **Tone axis direction** — `Dark → Light` / `Light → Dark`. Which end of the

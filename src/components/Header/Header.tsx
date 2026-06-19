@@ -1,7 +1,7 @@
 import {
+  IconActionBackSmall24,
+  IconActionNextSmall24,
   IconButton,
-  IconNavigateBack24,
-  IconNavigateForward24,
   IconSettings24,
 } from '@create-figma-plugin/ui'
 import { useRef, useState } from 'preact/hooks'
@@ -28,12 +28,12 @@ export function Header() {
       <div class={styles.actions}>
         <Tooltip content="Undo">
           <IconButton onClick={() => undo()} disabled={canUndo === false}>
-            <IconNavigateBack24 />
+            <IconActionBackSmall24 />
           </IconButton>
         </Tooltip>
         <Tooltip content="Redo">
           <IconButton onClick={() => redo()} disabled={canRedo === false}>
-            <IconNavigateForward24 />
+            <IconActionNextSmall24 />
           </IconButton>
         </Tooltip>
 

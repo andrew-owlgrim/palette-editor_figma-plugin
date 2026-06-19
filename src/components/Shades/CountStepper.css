@@ -1,14 +1,13 @@
 .stepper {
   display: flex;
   align-items: center;
-  gap: 2px;
 }
 
 /* Mirrors StopCard's .positionInput: ghost by default (the DS textbox's filled
    bg/border stripped), filled on hover, full DS textbox on focus — restyled on
    the inner <input>. Centered, since it sits between the −/+ buttons. */
 .field {
-  width: 44px;
+  width: 40px;
 }
 
 .field input {

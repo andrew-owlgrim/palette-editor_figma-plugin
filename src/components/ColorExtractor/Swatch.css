@@ -1,28 +1,66 @@
-/* Mirrors ShadesSection's .swatch: square fill, 4px radius, with the border drawn
-   inside via ::before so it overlays the fill instead of growing the box. Button
-   chrome is reset; the fill comes from an inline background-color. */
+/* The swatch is a transparent click target; the color lives on an inner .fill so
+   only the fill dims when deselected (the corner checkbox stays crisp). */
 .swatch {
   position: relative;
   aspect-ratio: 1;
   border-radius: 4px;
   padding: 0;
   border: none;
+  background: transparent;
   cursor: pointer;
-  transition: opacity 0.1s ease;
 }
 
-/* Deselected: the single dimmed state. */
-.inactive {
-  opacity: 0.25;
+.fill {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  transition: opacity 0.1s ease;
 }
 
 /* 15% of the content color reads on any swatch fill (black on light / white on
    dark); inset border keeps the grid columns from shifting. */
-.swatch::before {
+.fill::before {
   content: '';
   position: absolute;
   inset: 0;
   border: 1px solid color-mix(in srgb, var(--figma-color-text) 15%, transparent);
   border-radius: inherit;
   pointer-events: none;
+}
+
+/* Deselected: the single dimmed state (applied to the fill only). */
+.inactive {
+  opacity: 0.25;
+}
+
+/* Top-left checkbox: an empty white box when unchecked, the brand fill + a white
+   tick when checked. Shadows keep it legible on any swatch color (incl. white).
+   Hard white/brand colors so it reads the same regardless of the swatch behind. */
+.check {
+  position: absolute;
+  top: 4px;
+  left: 4px;
+  width: 16px;
+  height: 16px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.92);
+  color: transparent;
+}
+
+.check::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border: 1px solid color-mix(in srgb, var(--figma-color-text) 15%, transparent);
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.checked {
+  background: var(--figma-color-bg-brand);
+  color: #fff;
 }

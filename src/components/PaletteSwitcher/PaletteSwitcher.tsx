@@ -8,7 +8,7 @@ import {
   Modal,
   Text,
 } from '@create-figma-plugin/ui'
-import { useRef, useState } from 'preact/hooks'
+import { useMemo, useRef, useState } from 'preact/hooks'
 import { Popover } from '@/components/Popover/Popover'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { useLibraryStore } from '@/store/library'
@@ -121,6 +121,13 @@ export function PaletteSwitcher() {
   const activePalette = palettes.find((p) => p.id === activeRef.id)
   const activeName = isUserActive ? (activePalette?.name ?? '') : documentName
 
+  // Saved palettes are listed most-recently-edited first (a save bumps
+  // `updatedAt`). Sort a copy so the store array stays untouched.
+  const sortedPalettes = useMemo(
+    () => [...palettes].sort((a, b) => b.updatedAt - a.updatedAt),
+    [palettes],
+  )
+
   function select(palette: Palette | 'document') {
     setOpen(false)
     selectPalette(
@@ -137,71 +144,77 @@ export function PaletteSwitcher() {
 
   return (
     <div class={styles.switcher} ref={containerRef}>
-      <IconButton onClick={() => setOpen((v) => !v)}>
-        <IconChevronDown24 />
-      </IconButton>
-      {isUserActive ? (
-        <RenameField id={activeRef.id} name={activeName} />
-      ) : (
-        <div class={styles.name} title={activeName}>
-          {activeName}
+      <div class={styles.group}>
+        <div class={styles.cellChevron}>
+          <IconButton onClick={() => setOpen((v) => !v)}>
+            <IconChevronDown24 />
+          </IconButton>
         </div>
-      )}
+        {isUserActive ? (
+          <RenameField id={activeRef.id} name={activeName} />
+        ) : (
+          <div class={styles.name} title={activeName}>
+            {activeName}
+          </div>
+        )}
+      </div>
 
       <Popover open={open} onClose={() => setOpen(false)} containerRef={containerRef} align="left">
         <div class={styles.menu}>
-          <div class={styles.sectionHeader}>
-            <span class={styles.sectionTitle}>Current file</span>
-          </div>
-          <div
-            class={`${styles.row} ${activeRef.kind === 'document' ? styles.active : ''}`}
-            role="button"
-            tabIndex={0}
-            onClick={() => select('document')}
-            onKeyDown={(event) => {
-              if (event.key === 'Enter' || event.key === ' ') select('document')
-            }}
-          >
-            <span class={styles.rowName}>{documentName}</span>
-          </div>
+          <section class={styles.section}>
+            <div class={styles.sectionHeader}>
+              <span class={styles.sectionTitle}>Current file</span>
+            </div>
+            <div
+              class={`${styles.row} ${activeRef.kind === 'document' ? styles.active : ''}`}
+              role="button"
+              tabIndex={0}
+              onClick={() => select('document')}
+              onKeyDown={(event) => {
+                if (event.key === 'Enter' || event.key === ' ') select('document')
+              }}
+            >
+              <span class={styles.rowName}>{documentName}</span>
+            </div>
+          </section>
 
-          <div class={styles.divider} />
-
-          <div class={styles.sectionHeader}>
-            <span class={styles.sectionTitle}>Saved palettes</span>
-            <Tooltip content="New palette">
-              <IconButton
-                onClick={() => {
-                  setOpen(false)
-                  createPalette()
-                }}
-              >
-                <IconPlusSmall24 />
-              </IconButton>
-            </Tooltip>
-          </div>
-          {loading ? (
-            <div class={styles.hint}>Loading…</div>
-          ) : palettes.length === 0 ? (
-            <div class={styles.hint}>No saved palettes yet</div>
-          ) : (
-            palettes.map((palette) => (
-              <SavedRow
-                key={palette.id}
-                palette={palette}
-                active={isUserActive && palette.id === activeRef.id}
-                onSelect={() => select(palette)}
-                onDuplicate={() => {
-                  setOpen(false)
-                  duplicatePalette(palette.id)
-                }}
-                onDelete={() => {
-                  setOpen(false)
-                  setDeleteTarget(palette)
-                }}
-              />
-            ))
-          )}
+          <section class={styles.section}>
+            <div class={styles.sectionHeader}>
+              <span class={styles.sectionTitle}>Saved palettes</span>
+              <Tooltip content="New palette">
+                <IconButton
+                  onClick={() => {
+                    setOpen(false)
+                    createPalette()
+                  }}
+                >
+                  <IconPlusSmall24 />
+                </IconButton>
+              </Tooltip>
+            </div>
+            {loading ? (
+              <div class={styles.hint}>Loading…</div>
+            ) : palettes.length === 0 ? (
+              <div class={styles.hint}>No saved palettes yet</div>
+            ) : (
+              sortedPalettes.map((palette) => (
+                <SavedRow
+                  key={palette.id}
+                  palette={palette}
+                  active={isUserActive && palette.id === activeRef.id}
+                  onSelect={() => select(palette)}
+                  onDuplicate={() => {
+                    setOpen(false)
+                    duplicatePalette(palette.id)
+                  }}
+                  onDelete={() => {
+                    setOpen(false)
+                    setDeleteTarget(palette)
+                  }}
+                />
+              ))
+            )}
+          </section>
         </div>
       </Popover>
 
