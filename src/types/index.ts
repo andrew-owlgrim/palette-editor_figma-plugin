@@ -178,6 +178,15 @@ export interface SaveUserPaletteHandler extends EventHandler {
   handler: (data: { palette: Palette }) => void
 }
 
+// main -> UI: result of persisting one user palette. `ok: false` (e.g. the
+// library hit its size cap) lets the UI roll back a palette that was added
+// optimistically but never actually reached clientStorage, instead of leaving a
+// ghost that disappears on the next reload.
+export interface SaveUserPaletteResultHandler extends EventHandler {
+  name: 'SAVE_USER_PALETTE_RESULT'
+  handler: (data: { id: string; ok: boolean }) => void
+}
+
 // UI -> main: remove one user palette from clientStorage.
 export interface DeleteUserPaletteHandler extends EventHandler {
   name: 'DELETE_USER_PALETTE'

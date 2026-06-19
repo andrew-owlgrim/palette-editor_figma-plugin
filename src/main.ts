@@ -10,6 +10,7 @@ import type {
   RequestUserLibraryHandler,
   SaveDocumentHandler,
   SaveUserPaletteHandler,
+  SaveUserPaletteResultHandler,
   SaveUserPrefsHandler,
   SelectionFillsHandler,
   SetActivePaletteHandler,
@@ -189,9 +190,17 @@ export default function () {
       })
   })
   on<SaveUserPaletteHandler>('SAVE_USER_PALETTE', ({ palette }) => {
-    void upsertUserPalette(palette).catch((error: unknown) => {
-      figma.notify(String(error instanceof Error ? error.message : error), { error: true })
-    })
+    void upsertUserPalette(palette)
+      .then(() => {
+        emit<SaveUserPaletteResultHandler>('SAVE_USER_PALETTE_RESULT', { id: palette.id, ok: true })
+      })
+      .catch((error: unknown) => {
+        figma.notify(String(error instanceof Error ? error.message : error), { error: true })
+        emit<SaveUserPaletteResultHandler>('SAVE_USER_PALETTE_RESULT', {
+          id: palette.id,
+          ok: false,
+        })
+      })
   })
   on<DeleteUserPaletteHandler>('DELETE_USER_PALETTE', ({ id }) => {
     void deleteUserPalette(id)

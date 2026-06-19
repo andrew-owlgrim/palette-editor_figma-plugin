@@ -56,8 +56,19 @@ interface LibraryState {
   duplicatePalette: (id: string) => void
   renamePalette: (id: string, name: string) => void
   deletePalette: (id: string) => void
+  // Apply a persist result from the main thread: a failed FIRST save of an
+  // optimistically-added palette rolls it back out of the store.
+  handleSaveResult: (id: string, ok: boolean) => void
   setInputColorModel: (model: InputColorModel) => void
 }
+
+// Ids of palettes added optimistically this session that haven't yet been
+// confirmed persisted. A save FAILURE for an id still in this set (e.g. the
+// library hit its size cap) means the palette never reached clientStorage, so we
+// roll it back rather than leave a ghost that vanishes on reload. A success ack
+// clears the id, so a later edit-save failure to it only notifies (the palette is
+// already on disk).
+const unpersistedIds = new Set<string>()
 
 // Legacy input model found on the loaded document's settings (pre-ADR-027). Used
 // once, as a first-run nicety, to seed the global pref so existing users keep
@@ -172,6 +183,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       updatedAt: Date.now(),
       ...emptyPaletteBody(),
     }
+    unpersistedIds.add(id)
     set({ palettes: [...get().palettes, palette] })
     emit<SaveUserPaletteHandler>('SAVE_USER_PALETTE', { palette })
     get().selectPalette({ kind: 'user', id })
@@ -190,6 +202,7 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
       name: `${source.name} copy`,
       updatedAt: Date.now(),
     }
+    unpersistedIds.add(copy.id)
     set({ palettes: [...get().palettes, copy] })
     emit<SaveUserPaletteHandler>('SAVE_USER_PALETTE', { palette: copy })
     get().selectPalette({ kind: 'user', id: copy.id })
@@ -211,12 +224,28 @@ export const useLibraryStore = create<LibraryState>((set, get) => ({
     // Drop any pending debounced save for this palette — otherwise it could be
     // re-written to clientStorage right after we delete it (resurrection race).
     if (wasActive) cancelPendingSave()
+    unpersistedIds.delete(id)
     set({ palettes: get().palettes.filter((p) => p.id !== id) })
     emit<DeleteUserPaletteHandler>('DELETE_USER_PALETTE', { id })
     if (wasActive) {
       // Fall back to the document palette (flushSave inside is now a no-op).
       get().selectPalette({ kind: 'document', id: get().documentId })
     }
+  },
+
+  handleSaveResult: (id, ok) => {
+    if (ok) {
+      unpersistedIds.delete(id) // confirmed persisted; later failures only notify
+      return
+    }
+    // A persist failed. Only roll back if this palette was never persisted (still
+    // optimistic) — an edit-save failure to an already-saved palette must keep it.
+    if (!unpersistedIds.has(id)) return
+    unpersistedIds.delete(id)
+    const wasActive = get().activeRef.kind === 'user' && get().activeRef.id === id
+    if (wasActive) cancelPendingSave()
+    set({ palettes: get().palettes.filter((p) => p.id !== id) })
+    if (wasActive) get().selectPalette({ kind: 'document', id: get().documentId })
   },
 
   setInputColorModel: (model) => {

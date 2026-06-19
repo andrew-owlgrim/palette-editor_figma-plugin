@@ -32,7 +32,16 @@ export const useExtractorStore = create<ExtractorState>()((set, get) => ({
   error: null,
   open: () => set({ stage: 'intake', error: null }),
   startLoading: () => set({ stage: 'loading', error: null }),
-  setSource: (source) => set({ stage: 'workspace', source, error: null }),
+  setSource: (source) => {
+    // Revoke a previous preview URL it's about to replace — e.g. two decodes
+    // raced (paste twice / paste then drop) and the earlier one resolved first.
+    // Without this its object URL would leak for the rest of the session.
+    const prev = get().source
+    if (prev !== null && prev.previewUrl !== source.previewUrl) {
+      URL.revokeObjectURL(prev.previewUrl)
+    }
+    set({ stage: 'workspace', source, error: null })
+  },
   fail: (message) => set({ stage: 'intake', error: message }),
   close: () => {
     const { source } = get()

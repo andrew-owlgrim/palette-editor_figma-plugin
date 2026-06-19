@@ -14,6 +14,7 @@ import type {
   PersistedDocument,
   RequestSelectionFillsHandler,
   RequestUserLibraryHandler,
+  SaveUserPaletteResultHandler,
   SelectionFillsHandler,
   UserLibraryHandler,
 } from '@/types'
@@ -48,12 +49,21 @@ export function App({ initialDocument, documentId = '', documentName = '' }: App
     const offLibrary = on<UserLibraryHandler>('USER_LIBRARY', ({ library }) => {
       useLibraryStore.getState().receiveLibrary(library)
     })
+    // A failed first persist (e.g. the library is full) rolls the palette back
+    // out of the store so it can't linger as a ghost until the next reload.
+    const offSaveResult = on<SaveUserPaletteResultHandler>(
+      'SAVE_USER_PALETTE_RESULT',
+      ({ id, ok }) => {
+        useLibraryStore.getState().handleSaveResult(id, ok)
+      },
+    )
     emit<RequestUserLibraryHandler>('REQUEST_USER_LIBRARY')
 
     return () => {
       flushSave()
       unsubscribe()
       offLibrary()
+      offSaveResult()
     }
   }, [initialDocument, documentId, documentName])
 

@@ -41,8 +41,11 @@ export function IntakeModal() {
         void runDecode(() => imageFromFile(file))
         return
       }
+      // Only treat a pasted string as an image link when it's an http(s) URL —
+      // otherwise an unrelated clipboard paste would fire a network request at
+      // whatever text it held.
       const text = data.getData('text').trim()
-      if (text !== '') {
+      if (/^https?:\/\//i.test(text)) {
         event.preventDefault()
         void runDecode(() => imageFromUrl(text))
       }

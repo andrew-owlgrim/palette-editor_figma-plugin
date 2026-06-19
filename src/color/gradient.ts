@@ -33,7 +33,8 @@ const BLENDING_MODE: Record<BlendingColorModel, 'rgb' | 'hsl' | 'oklch' | 'lch'>
 let stopIdCounter = 0
 export function newStopId(): string {
   stopIdCounter += 1
-  return `gs_${Date.now().toString(36)}_${stopIdCounter.toString(36)}`
+  // Random tail for cross-instance uniqueness (see newId in store/index.ts).
+  return `gs_${Date.now().toString(36)}_${stopIdCounter.toString(36)}_${Math.random().toString(36).slice(2, 6)}`
 }
 
 function clamp01(x: number): number {

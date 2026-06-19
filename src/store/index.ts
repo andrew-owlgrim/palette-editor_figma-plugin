@@ -41,15 +41,21 @@ import {
 import { inputColorModel } from './prefs'
 
 let idCounter = 0
+// A short random tail so ids stay unique even across two plugin instances open in
+// different files at once (they share one clientStorage library, and each iframe
+// has its own `idCounter` starting at 0 — time + counter alone could collide).
+function randTail(): string {
+  return Math.random().toString(36).slice(2, 6)
+}
 function newId(): string {
   idCounter += 1
-  return `kc_${Date.now().toString(36)}_${idCounter.toString(36)}`
+  return `kc_${Date.now().toString(36)}_${idCounter.toString(36)}_${randTail()}`
 }
 
 // Library palette id (distinct prefix from key-color ids for legibility).
 export function newPaletteId(): string {
   idCounter += 1
-  return `pal_${Date.now().toString(36)}_${idCounter.toString(36)}`
+  return `pal_${Date.now().toString(36)}_${idCounter.toString(36)}_${randTail()}`
 }
 
 // Default name of the variable collection "Create variables" writes into.
