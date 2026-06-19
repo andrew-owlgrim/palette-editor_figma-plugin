@@ -2,6 +2,7 @@ import { Button, IconButton, IconLibrary24, Modal } from '@create-figma-plugin/u
 import { useEffect, useMemo, useRef, useState } from 'preact/hooks'
 import { Swatch } from '@/components/ColorExtractor/Swatch'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
+import { useOverlayScrollbars } from '@/hooks/useOverlayScrollbars'
 import { keyColorOf } from '@/color/gradient'
 import { colorToHex } from '@/color/models'
 import { toRuntimeColors } from '@/store'
@@ -30,6 +31,8 @@ export function PaletteImport({ onImport }: PaletteImportProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [source, setSource] = useState<ImportSource | null>(null)
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  // Overlay scrollbar on the swatch grid (mounts/unmounts with the modal body).
+  const { ref: gridRef } = useOverlayScrollbars({ overflow: { x: 'hidden', y: 'scroll' } })
 
   const activeRef = useLibraryStore((s) => s.activeRef)
   const documentBody = useLibraryStore((s) => s.documentBody)
@@ -128,15 +131,17 @@ export function PaletteImport({ onImport }: PaletteImportProps) {
       >
         {source !== null && (
           <div class={styles.body}>
-            <div class={styles.grid}>
-              {source.colors.map((color) => (
-                <Swatch
-                  key={color.id}
-                  hex={colorToHex(keyColorOf(color))}
-                  selected={selected.has(color.id)}
-                  onToggle={() => toggle(color.id)}
-                />
-              ))}
+            <div class={styles.gridScroll} ref={gridRef}>
+              <div class={styles.grid}>
+                {source.colors.map((color) => (
+                  <Swatch
+                    key={color.id}
+                    hex={colorToHex(keyColorOf(color))}
+                    selected={selected.has(color.id)}
+                    onToggle={() => toggle(color.id)}
+                  />
+                ))}
+              </div>
             </div>
             <div class={styles.footer}>
               <Button secondary fullWidth onClick={() => setSource(null)}>

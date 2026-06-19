@@ -6,6 +6,7 @@ import { Footer } from '@/components/Footer/Footer'
 import { Header } from '@/components/Header/Header'
 import { KeyColorsSection } from '@/components/KeyColors/KeyColorsSection'
 import { ShadesSection } from '@/components/Shades/ShadesSection'
+import { useOverlayScrollbars } from '@/hooks/useOverlayScrollbars'
 import { usePaletteStore } from '@/store'
 import { useExtractorStore } from '@/store/extractor'
 import { flushSave, resetSaveBaseline, scheduleSave, useLibraryStore } from '@/store/library'
@@ -110,6 +111,11 @@ export function App({ initialDocument, documentId = '', documentName = '' }: App
   // intake modal overlays it during intake/loading. The store actions live
   // outside React, so swapping the rendered tree doesn't disturb the save
   // subscription or selection tracking above.
+  // Overlay scrollbars on the main vertical scroller (called before the early
+  // return so hook order stays stable; the ref simply doesn't attach when the
+  // workspace replaces this tree).
+  const { ref: bodyRef } = useOverlayScrollbars({ overflow: { x: 'hidden', y: 'scroll' } })
+
   const extractorStage = useExtractorStore((s) => s.stage)
   if (extractorStage === 'workspace') {
     return <ExtractWorkspace />
@@ -118,9 +124,13 @@ export function App({ initialDocument, documentId = '', documentName = '' }: App
   return (
     <div class={styles.root}>
       <Header />
-      <div class={styles.body}>
-        <KeyColorsSection />
-        <ShadesSection />
+      <div class={styles.body} ref={bodyRef}>
+        {/* Inner wrapper: OverlayScrollbars forces its host to flex-row, so the
+            stacked sections live one level in. */}
+        <div class={styles.bodyContent}>
+          <KeyColorsSection />
+          <ShadesSection />
+        </div>
       </div>
       <Footer />
       {(extractorStage === 'intake' || extractorStage === 'loading') && <IntakeModal />}

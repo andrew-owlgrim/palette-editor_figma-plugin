@@ -4,6 +4,7 @@ import { CountStepper } from './CountStepper'
 import { GradientEditor } from './GradientEditor'
 import { StopInput } from './StopInput'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
+import { useOverlayScrollbars } from '@/hooks/useOverlayScrollbars'
 import { colorToHex } from '@/color/models'
 import { buildGradientSampler } from '@/color/gradient'
 import { resolveSteps, SHADE_MAX } from '@/color/shades'
@@ -20,6 +21,8 @@ export function ShadesSection() {
   // Which key color's gradient editor is open (injected under its row). A stale
   // id (its color removed) simply renders no editor — guarded at render.
   const [editingId, setEditingId] = useState<string | null>(null)
+  // Horizontal scroller (step row + swatch rows scroll together).
+  const { ref: scrollerRef } = useOverlayScrollbars({ overflow: { x: 'scroll', y: 'hidden' } })
 
   const count = steps.length
   const resolved = useMemo(() => resolveSteps(steps), [steps])
@@ -49,56 +52,58 @@ export function ShadesSection() {
         <CountStepper value={count} onChange={setShadeCount} />
       </div>
 
-      <div class={styles.scroller}>
-        <div class={styles.steps} style={columns}>
-          {steps.map((value, i) => (
-            <Tooltip key={i} content="specify stop">
-              <StopInput
-                value={value}
-                placeholder={resolved[i]}
-                onCommit={(next) => setShadeStep(i, next)}
-              />
-            </Tooltip>
-          ))}
-        </div>
+      <div class={styles.scroller} ref={scrollerRef}>
+        <div class={styles.inner}>
+          <div class={styles.steps} style={columns}>
+            {steps.map((value, i) => (
+              <Tooltip key={i} content="specify stop">
+                <StopInput
+                  value={value}
+                  placeholder={resolved[i]}
+                  onCommit={(next) => setShadeStep(i, next)}
+                />
+              </Tooltip>
+            ))}
+          </div>
 
-        {keyColors.length > 0 ? (
-          rows.map((row) => {
-            const paletteColor = keyColors.find((k) => k.id === row.id)
-            const active = editingId === row.id
-            const swatchRow = (
-              <div
-                class={styles.row}
-                style={columns}
-                role="button"
-                tabIndex={0}
-                onClick={() => toggleEditing(row.id)}
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter' || event.key === ' ') {
-                    event.preventDefault()
-                    toggleEditing(row.id)
-                  }
-                }}
-              >
-                {row.colors.map((hex, i) => (
-                  <div key={i} class={styles.swatch} style={{ backgroundColor: hex }} />
-                ))}
-              </div>
-            )
-            // Active rows fold the swatch row and its editor into one full-bleed
-            // secondary panel; inactive rows render the swatch row on its own.
-            return active && paletteColor !== undefined ? (
-              <div key={row.id} class={styles.expanded}>
-                {swatchRow}
-                <GradientEditor paletteColor={paletteColor} />
-              </div>
-            ) : (
-              <Fragment key={row.id}>{swatchRow}</Fragment>
-            )
-          })
-        ) : (
-          <div class={styles.empty}>Add a key color to generate shades</div>
-        )}
+          {keyColors.length > 0 ? (
+            rows.map((row) => {
+              const paletteColor = keyColors.find((k) => k.id === row.id)
+              const active = editingId === row.id
+              const swatchRow = (
+                <div
+                  class={styles.row}
+                  style={columns}
+                  role="button"
+                  tabIndex={0}
+                  onClick={() => toggleEditing(row.id)}
+                  onKeyDown={(event) => {
+                    if (event.key === 'Enter' || event.key === ' ') {
+                      event.preventDefault()
+                      toggleEditing(row.id)
+                    }
+                  }}
+                >
+                  {row.colors.map((hex, i) => (
+                    <div key={i} class={styles.swatch} style={{ backgroundColor: hex }} />
+                  ))}
+                </div>
+              )
+              // Active rows fold the swatch row and its editor into one full-bleed
+              // secondary panel; inactive rows render the swatch row on its own.
+              return active && paletteColor !== undefined ? (
+                <div key={row.id} class={styles.expanded}>
+                  {swatchRow}
+                  <GradientEditor paletteColor={paletteColor} />
+                </div>
+              ) : (
+                <Fragment key={row.id}>{swatchRow}</Fragment>
+              )
+            })
+          ) : (
+            <div class={styles.empty}>Add a key color to generate shades</div>
+          )}
+        </div>
       </div>
     </section>
   )

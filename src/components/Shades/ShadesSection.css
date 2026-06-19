@@ -22,12 +22,17 @@
   color: var(--figma-color-text);
 }
 
-/* Scrolls the step row and the swatch grid together when steps overflow. */
+/* Scrolls the step row and the swatch grid together when steps overflow.
+   OverlayScrollbars host — the column layout lives on `.inner` (the host is
+   forced to flex-row). */
 .scroller {
+  overflow-x: auto;
+}
+
+.inner {
   display: flex;
   flex-direction: column;
-  overflow-x: auto;
-  padding-bottom: 4px;
+  width: 100%;
 }
 
 .steps {

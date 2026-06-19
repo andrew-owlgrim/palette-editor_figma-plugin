@@ -19,3 +19,11 @@
   flex: 1 1 auto;
   overflow-y: auto;
 }
+
+/* Content wrapper inside the OverlayScrollbars host (the host is forced to
+   flex-row, so the page sections stack here instead). */
+.bodyContent {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+}

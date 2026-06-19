@@ -2,7 +2,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  padding: 12px;
+  padding: 12px 12px 0 12px;
   border-bottom: 1px solid var(--figma-color-border);
 }
 
@@ -24,12 +24,19 @@
   color: var(--figma-color-text);
 }
 
+/* OverlayScrollbars host (overlay bars; the `overflow-x` is a pre-init fallback).
+   The row's flex layout lives on the inner `.track` so it survives the library
+   moving the content into its own viewport. */
 .list {
+  overflow-x: auto;
+}
+
+.track {
   display: flex;
+  padding-bottom: 12px;
   flex-direction: row;
   gap: 8px;
-  overflow-x: auto;
-  padding-bottom: 4px;
+  width: max-content;
 }
 
 .empty {

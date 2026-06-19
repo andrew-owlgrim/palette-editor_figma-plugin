@@ -19,6 +19,7 @@ import { KeyColorCard } from './KeyColorCard'
 import { KeyColorCardPreview } from './KeyColorCardPreview'
 import { PaletteImport } from '@/components/PaletteImport/PaletteImport'
 import { Tooltip } from '@/components/Tooltip/Tooltip'
+import { useOverlayScrollbars } from '@/hooks/useOverlayScrollbars'
 import { usePaletteStore } from '@/store'
 import { useExtractorStore } from '@/store/extractor'
 import { useSelectionStore } from '@/store/selection'
@@ -40,7 +41,11 @@ export function KeyColorsSection() {
   // the card's controls; the slightest drag starts a reorder.
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 1 } }))
 
-  const listRef = useRef<HTMLDivElement>(null)
+  // Overlay scrollbars on the horizontal card list; `instance` lets us scroll the
+  // library-managed viewport (not the host) to reveal newly added cards.
+  const { ref: listRef, instance: listScrollbars } = useOverlayScrollbars<HTMLDivElement>({
+    overflow: { x: 'scroll', y: 'hidden' },
+  })
   // Set only by the add buttons so we scroll on user-add, not on load/undo.
   const scrollToEndRef = useRef(false)
 
@@ -48,10 +53,8 @@ export function KeyColorsSection() {
   useEffect(() => {
     if (!scrollToEndRef.current) return
     scrollToEndRef.current = false
-    const list = listRef.current
-    if (list !== null) {
-      list.scrollTo({ left: list.scrollWidth, behavior: 'smooth' })
-    }
+    const viewport = listScrollbars.current?.elements().viewport
+    viewport?.scrollTo({ left: viewport.scrollWidth, behavior: 'smooth' })
   }, [keyColors.length])
 
   function handleAdd() {
@@ -124,9 +127,11 @@ export function KeyColorsSection() {
             strategy={horizontalListSortingStrategy}
           >
             <div class={styles.list} ref={listRef}>
-              {keyColors.map((keyColor) => (
-                <KeyColorCard key={keyColor.id} keyColor={keyColor} />
-              ))}
+              <div class={styles.track}>
+                {keyColors.map((keyColor) => (
+                  <KeyColorCard key={keyColor.id} keyColor={keyColor} />
+                ))}
+              </div>
             </div>
           </SortableContext>
           <DragOverlay>

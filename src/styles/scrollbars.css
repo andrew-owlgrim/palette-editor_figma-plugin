@@ -1,0 +1,19 @@
+/* OverlayScrollbars theme mapping the floating overlay bars onto Figma's UI
+   tokens, so they track light/dark mode automatically. Injected GLOBALLY via the
+   `!`-prefixed import in ui.tsx (the toolkit ships `!`-CSS verbatim) — the class
+   names must stay un-hashed to match the classes OverlayScrollbars adds.
+
+   Reworked scrollbars (backlog): thin, subtle, overlay (no layout shift),
+   auto-hiding. Colors/sizes are the only knobs here; the structural behavior is
+   the library's own stylesheet. */
+.os-theme-figma {
+  --os-size: 12px;
+  --os-padding-perpendicular: 4px;
+  --os-padding-axis: 4px;
+  --os-handle-border-radius: 8px;
+  --os-handle-min-size: 24px;
+  --os-handle-interactive-area-offset: 4px;
+  --os-handle-bg: color-mix(in srgb, var(--figma-color-text-secondary) 40%, transparent);
+  --os-handle-bg-hover: var(--figma-color-text-secondary);
+  --os-handle-bg-active: var(--figma-color-text-secondary);
+}

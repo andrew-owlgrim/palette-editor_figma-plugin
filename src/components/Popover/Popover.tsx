@@ -1,5 +1,6 @@
 import type { ComponentChildren } from 'preact'
 import { useEffect, useLayoutEffect, useRef, useState } from 'preact/hooks'
+import { createPortal } from 'preact/compat'
 import styles from './Popover.css'
 
 type AnchorRef = { readonly current: HTMLElement | null }
@@ -48,10 +49,15 @@ export function Popover({
   useEffect(() => {
     if (open === false) return
     function handlePointerDown(event: MouseEvent) {
+      const target = event.target as Node
       const container = containerRef.current
-      if (container !== null && container.contains(event.target as Node) === false) {
-        onClose()
-      }
+      const popover = popoverRef.current
+      // The floating variant is portaled out of `containerRef` (see below), so a
+      // click inside it would otherwise read as "outside" and close the popover.
+      const inside =
+        (container !== null && container.contains(target)) ||
+        (popover !== null && popover.contains(target))
+      if (!inside) onClose()
     }
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') onClose()
@@ -107,9 +113,11 @@ export function Popover({
 
   if (open === false) return null
   if (anchorRef != null) {
-    // Always rendered so it can be measured; kept invisible (but laid out) until
-    // its position is computed, to avoid a flash at the wrong spot.
-    return (
+    // Portaled to <body> so it lives in the root stacking context — otherwise an
+    // OverlayScrollbars viewport (or any positioned/`contain` ancestor) would trap
+    // it and let sibling scrollbars/content paint over it. Always rendered so it
+    // can be measured; kept invisible (but laid out) until positioned.
+    return createPortal(
       <div
         ref={popoverRef}
         class={styles.floating}
@@ -120,7 +128,8 @@ export function Popover({
         }}
       >
         {children}
-      </div>
+      </div>,
+      document.body,
     )
   }
   return (

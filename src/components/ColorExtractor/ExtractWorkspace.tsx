@@ -6,6 +6,7 @@ import {
   MIN_COLOR_COUNT,
   extractColors,
 } from '@/color/extract'
+import { useOverlayScrollbars } from '@/hooks/useOverlayScrollbars'
 import { usePaletteStore } from '@/store'
 import { useExtractorStore } from '@/store/extractor'
 import { Swatch } from './Swatch'
@@ -20,6 +21,7 @@ export function ExtractWorkspace() {
   const addKeyColors = usePaletteStore((s) => s.addKeyColors)
 
   const [count, setCount] = useState(DEFAULT_COLOR_COUNT)
+  const { ref: gridRef } = useOverlayScrollbars({ overflow: { x: 'hidden', y: 'scroll' } })
 
   // Re-cluster only when the image or the requested count changes — not on every
   // toggle. (extractColors keeps run-to-run variance low via best-of-N restarts.)
@@ -77,15 +79,17 @@ export function ExtractWorkspace() {
           </div>
         </div>
 
-        <div class={styles.grid}>
-          {colors.map((color, index) => (
-            <Swatch
-              key={index}
-              hex={color.hex}
-              selected={selected.has(color.hex)}
-              onToggle={() => toggle(color.hex)}
-            />
-          ))}
+        <div class={styles.gridScroll} ref={gridRef}>
+          <div class={styles.grid}>
+            {colors.map((color, index) => (
+              <Swatch
+                key={index}
+                hex={color.hex}
+                selected={selected.has(color.hex)}
+                onToggle={() => toggle(color.hex)}
+              />
+            ))}
+          </div>
         </div>
 
         <div class={styles.footer}>

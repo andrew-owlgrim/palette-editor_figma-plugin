@@ -59,10 +59,16 @@
   color: var(--figma-color-text);
 }
 
-/* Two-column grid of square swatches; rows stay top-aligned (no stretch). */
-.grid {
+/* OverlayScrollbars host for the swatch grid (the grid layout lives on `.grid`
+   inside, since the host is forced to flex-row). */
+.gridScroll {
   flex: 1 1 auto;
   overflow-y: auto;
+}
+
+/* Two-column grid of square swatches; rows stay top-aligned (no stretch). */
+.grid {
+  width: 100%;
   padding: 12px 16px;
   display: grid;
   grid-template-columns: 1fr 1fr 1fr;
