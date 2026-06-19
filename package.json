@@ -1,7 +1,8 @@
 {
-  "name": "my-colors",
-  "version": "0.1.0",
-  "description": "Figma color palette generator plugin",
+  "name": "palette-editor",
+  "version": "1.0.0",
+  "description": "Generate and edit color palettes in Figma",
+  "license": "MIT",
   "scripts": {
     "build": "build-figma-plugin --typecheck --minify",
     "watch": "build-figma-plugin --typecheck --watch",
@@ -10,10 +11,11 @@
   },
   "figma-plugin": {
     "id": "my-colors-dev",
-    "name": "My Colors",
+    "name": "Palette Editor",
     "editorType": [
       "figma"
     ],
+    "documentAccess": "dynamic-page",
     "main": {
       "src": "src/main.ts",
       "handler": "default"

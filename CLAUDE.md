@@ -1,4 +1,4 @@
-# My Colors — Figma plugin
+# Palette Editor — Figma plugin
 
 Color palette generator plugin for Figma. Preact UI built on the
 `create-figma-plugin` toolkit, with custom color tooling on top of `culori`.

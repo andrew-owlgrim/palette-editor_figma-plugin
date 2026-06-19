@@ -2,7 +2,7 @@
 
 ## What it is
 
-**My Colors** ("Palette Editor") is a Figma plugin for generating and editing
+**Palette Editor** is a Figma plugin for generating and editing
 color palettes. It runs in a 720×640 window and aims to feel native inside
 Figma by using the Figma design-system components and color tokens.
 
