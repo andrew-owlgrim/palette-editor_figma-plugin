@@ -514,3 +514,37 @@ Builds on ADR-026 (the library makes "another palette" a real concept).
   `PaletteImport`. No new bridge messages — it's all UI-thread over existing
   library state. A different active blending model can momentarily shift imported
   auto-stop positions until re-edited (accepted).
+
+## ADR-029 — Overlay scrollbars (OverlayScrollbars)
+
+- **Context:** the native scrollbars looked too bold and **shifted layout** when a
+  region became scrollable (the backlog "rework scrollbars" item). The goal: thin,
+  Figma-like, floating bars that don't occupy layout and auto-hide.
+- **Decision — `overlayscrollbars` (vanilla core), not CSS-only.** Modern Chromium
+  removed the only pure-CSS overlay route (`overflow: overlay` is now aliased to
+  `auto`), so a thin `::-webkit-scrollbar` can't float — it still reserves layout
+  width. Rejected: a CSS-only **stable-gutter** approach (no shift but not floating);
+  **SimpleBar** (weaker with dynamic/nested sizing); React-first wrappers
+  (`overlayscrollbars-react`, Radix `ScrollArea`) — they pull React types/reconciler
+  and risk the same `preact/compat` friction we hit with DnD Kit. We use the
+  **framework-neutral vanilla core** directly via a `useEffect`/callback-ref hook
+  (`src/hooks/useOverlayScrollbars.ts`); the library's CSS + our theme are vendored as
+  **`!`-prefixed global imports** in `ui.tsx` (the toolkit ships them un-hashed — see
+  Build specifics) so we don't touch the esbuild config.
+- **Two constraints its DOM rewrite imposes** (future work must respect):
+  1. **Host can't be your layout container** — OverlayScrollbars forces the host to
+     `display:flex; flex-direction:row`, so each scroller is a *plain* host with the
+     real flex/grid layout on a single inner wrapper (`+ width:100%` so it doesn't
+     collapse in the flex-row host; `max-content` for the horizontal card list). The
+     ref/scroll element must be the element that actually overflows (not its parent).
+  2. **Viewport `z-index:0` traps `position:fixed` popovers** — so the floating
+     `Popover` variant is **portaled to `document.body`** (its outside-click test now
+     also accepts clicks inside the portaled node). Any future fixed overlay rendered
+     inside a scroller must portal out too.
+- **Theme/behavior:** `.os-theme-figma` in `src/styles/scrollbars.css` maps `--os-*`
+  vars onto `--figma-color-*` (adapts to light/dark); `autoHide`/delay live in the
+  hook's `DEFAULT_OPTIONS`. Applied to all five scrollers (main body, extractor grid,
+  import grid, shades, key-color list).
+- **Consequence/constraint:** a new runtime dependency; bars are Chromium-only overlay
+  (fine — the plugin runs only in Figma's Chromium iframe). DnD Kit auto-scroll on the
+  key-color list still works (native scroll underneath).

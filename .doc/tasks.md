@@ -4,6 +4,19 @@ Volatile working state. Last updated: 2026-06-19.
 
 ## Done
 
+- **Overlay scrollbars** (ADR-029): all five scroll regions (main body, extractor
+  grid, import grid, shades, key-color list) use **OverlayScrollbars** — thin,
+  floating, auto-hiding, Figma-themed bars that don't shift layout. Shared
+  `hooks/useOverlayScrollbars.ts` (callback-ref init/destroy + `instance` for
+  viewport scroll); theme in `styles/scrollbars.css`; library CSS vendored via
+  `!`-global imports. Two structural workarounds: each scroller is a plain host +
+  inner layout wrapper (OS forces the host to flex-row), and the floating `Popover`
+  is portaled to `<body>` (OS viewport `z-index:0` traps fixed popovers).
+- **Library / extractor hardening:** optimistic `create`/`duplicate` now **roll back**
+  on a failed first persist via a new `SAVE_USER_PALETTE_RESULT { id, ok }` ack (no
+  more ghost palettes on quota overflow); ids carry a random tail (cross-file
+  collision safety); the image-extractor revokes a raced `previewUrl` on replace and
+  only fetches a pasted string when it's an `^https?://` URL.
 - **Import colors from another palette** (ADR-028): a library `IconButton` in the
   Key colors header → a Figma-style **inverted dropdown** of the other palettes →
   a `Modal` reusing the extractor `Swatch` grid (all-on, no image/stepper). Imports

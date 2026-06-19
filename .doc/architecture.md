@@ -32,6 +32,7 @@ main.ts  ──showUI(opts,{initialDocument, documentId, documentName})──▶
    ├──── on('REQUEST_USER_LIBRARY') ◀── emit(...)                 (once, on UI mount)
    ├──── emit('USER_LIBRARY', { library }) ──▶ on(...)            (reply: clientStorage)
    ├──── on('SAVE_USER_PALETTE') ◀── emit(..., { palette })       (debounced, active=user)
+   ├──── emit('SAVE_USER_PALETTE_RESULT', { id, ok }) ──▶ on(...) (persist ack; roll back if !ok)
    ├──── on('DELETE_USER_PALETTE') ◀── emit(..., { id })          (delete-confirm)
    ├──── on('SAVE_USER_PREFS') ◀── emit(..., { prefs })           (input-model change)
    ├──── on('SET_ACTIVE_PALETTE') ◀── emit(..., { documentId, ref }) (palette switch)
@@ -364,6 +365,20 @@ upsert/prefs/active writes can't clobber, with a soft `LIBRARY_MAX_BYTES` quota
 guard (friendly `figma.notify` on overflow). `getUserData`/`setUserData` generic
 wrappers remain for ad-hoc per-user keys.
 
+**Optimistic-create rollback:** `create`/`duplicate` add a palette to the store
+immediately and fire `SAVE_USER_PALETTE`. The main thread **acks** every save with
+`SAVE_USER_PALETTE_RESULT { id, ok }`. The library store tracks newly-added ids in a
+session `unpersistedIds` set: a **failed first persist** (e.g. quota) for an id still
+in that set rolls the palette back out of the store (and falls back to the document
+palette if it was active), so a write that never reached `clientStorage` can't linger
+as a ghost that vanishes on reload. A success ack clears the id — a later *edit*-save
+failure to an already-persisted palette then only notifies, never deletes.
+
+**Id collisions:** palette / key-color / gradient-stop ids carry a short random tail
+(`Math.random`) on top of `Date.now` + a per-iframe counter, so two plugin instances
+open in different files at once (they share one `clientStorage` library) can't mint
+colliding ids.
+
 ## Canvas selection — fills, eyedropper, "add matching" (ADR-016)
 
 Lets the user pull colors off the canvas into the palette.
@@ -436,7 +451,8 @@ iframe may `fetch` an image URL).
   downsampled to `DOWNSAMPLE_MAX` (longest side) → `{ imageData, previewUrl }`.
   Bytes (drag/upload/paste) never hit CORS; a URL is best-effort `fetch` (variant A,
   no proxy) and throws a clear message if the host blocks it. `previewUrl` is an
-  object URL of the original bytes for the on-screen preview (revoked on close).
+  object URL of the original bytes for the on-screen preview (revoked on close — and
+  on `setSource` if a raced decode replaces a prior one, so it can't leak).
 - **State (`src/store/extractor.ts`):** an **ephemeral** zustand stage machine
   (`closed → intake → loading → workspace`, + the decoded `source` + an `error`),
   out of undo/persistence like `store/selection.ts`.
@@ -444,7 +460,8 @@ iframe may `fetch` an image URL).
   - `IntakeModal` — DS `Modal` (rounded via inline `style`) with a
     `FileUploadDropzone` (drag + click-to-upload; `acceptedFileTypes` omitted — it
     doubles as an exact-MIME filter that would drop every file) and a `window`
-    `paste` listener (image bytes or a text URL) while mounted.
+    `paste` listener while mounted (image bytes, or a pasted string only when it's
+    an `^https?://` URL — so unrelated pastes don't fire a network request).
   - `ExtractWorkspace` — **replaces** the normal UI render while `stage ===
     'workspace'` (image left; count stepper + 2-column `Swatch` grid + submit/cancel
     right). Re-clusters via `useMemo([source, count])`; selection (`Set` of hexes,
@@ -545,6 +562,25 @@ App (app/App.tsx)
 - Transient UI state (popover open, etc.) lives in component `useState`, never in
   the store — so it stays out of undo history and persistence.
 
+## Scrollbars — overlay (OverlayScrollbars, ADR-029)
+
+Every scroll region uses **OverlayScrollbars** for floating, auto-hiding, themed
+bars that don't shift layout. The shared hook `src/hooks/useOverlayScrollbars.ts`
+returns a **callback `ref`** (init on mount — incl. conditionally-rendered modals —
+destroy on unmount) and an `instance` ref (e.g. to scroll the managed viewport, as
+KeyColors does to reveal new cards). Theme = `.os-theme-figma` in
+`src/styles/scrollbars.css` (`--os-*` vars on `--figma-color-*`); behavior
+(`autoHide`/delay) lives in the hook's `DEFAULT_OPTIONS`.
+
+**Structural rule (the gotcha):** OverlayScrollbars forces its host to
+`display:flex; flex-direction:row`, so a host can't also be your flex/grid layout
+container — every scroller is a *plain* host with the real layout on a single inner
+wrapper (KeyColors `.track`, Shades `.inner`, the two swatch grids' `.gridScroll` →
+`.grid`, App `.bodyContent`); inner wrappers get `width:100%` (or `max-content` for
+the horizontal card list) so they don't collapse inside the flex-row host. And its
+viewport sets `z-index:0`, which traps `position:fixed` popovers — so the floating
+`Popover` variant is **portaled to `document.body`** (ADR-029) to escape it.
+
 ## Build & config specifics
 
 - **Preact/React aliasing:** `tsconfig` `paths` map `react` / `react-dom` →
@@ -556,7 +592,10 @@ App (app/App.tsx)
   automatic runtime too (so `.tsx` files don't import `h`).
 - **CSS Modules:** `import styles from './X.css'` → scoped class map; the toolkit
   auto-generates `*.css.d.ts` (gitignored) before typecheck. `:global(...)` works.
-  Global CSS via a `!`-prefixed import.
+  **Global CSS via a `!`-prefixed import** (`import '!pkg/foo.css'`): the toolkit
+  ships it verbatim (un-hashed) and resolves bare `node_modules` paths via `findUp` —
+  this is how third-party stylesheets are vendored (e.g. OverlayScrollbars in
+  `ui.tsx`, then our theme `src/styles/scrollbars.css`). Side-effect import, no binding.
 - **SVG:** imported as a `dataurl` string (esbuild loader); declared in
   `types/assets.d.ts`.
 - **Window:** fixed 720×640 via `showUI`.

@@ -45,6 +45,8 @@ superseded/removed entry to a one-line tombstone instead of deleting it.
 - `src/components/PaletteSwitcher/` — header palette switcher + delete-confirm modal (ADR-026)
 - `src/utils/storage.ts` — `clientStorage` (user library) / `sharedPluginData` (document) wrappers
 - `src/utils/image.ts` — decode + downsample File/Blob/URL → pixels for extraction (ADR-025)
+- `src/hooks/useOverlayScrollbars.ts` — Figma-themed overlay scrollbars hook (ADR-029)
+- `src/styles/scrollbars.css` — global OverlayScrollbars theme (`!`-prefixed global import)
 - `src/types/` — domain types + ambient `*.svg` / `*.css` declarations
 
 ## Commands
@@ -62,6 +64,14 @@ superseded/removed entry to a one-line tombstone instead of deleting it.
 - **Styling = CSS Modules, NOT Tailwind.** Tailwind needs a custom esbuild
   plugin here — rejected as overkill (ADR-004). Use Figma CSS vars
   (`--figma-color-*`) for native look; they ship via `@create-figma-plugin/ui`.
+- **Global / vendored CSS = `!`-prefixed import** (e.g. `import '!pkg/foo.css'`):
+  the toolkit injects it un-hashed and resolves bare `node_modules` paths. That's
+  how the OverlayScrollbars stylesheet + our theme load (in `ui.tsx`).
+- **Scrollbars = OverlayScrollbars (ADR-029).** Its host is forced to
+  `flex-direction: row`, so it can't be your flex/grid container — put the layout on
+  an inner wrapper and attach the scroll ref to the element that actually overflows.
+  Its viewport's `z-index:0` traps `position:fixed` popovers → portal floating
+  popovers to `<body>` (the shared `Popover` already does this).
 - **Preact, not React.** `tsconfig` aliases `react` / `react-dom` /
   `react/jsx-runtime` → preact equivalents so DnD Kit's React-typed props fit.
   Do NOT add `@types/react` (it breaks `DndContext` children typing). Preserve this.
