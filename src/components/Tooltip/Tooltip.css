@@ -4,6 +4,13 @@
   display: inline-flex;
 }
 
+/* Block trigger: fill the parent so a wrapped grid/flex item (e.g. a shade
+   swatch) still stretches to its cell instead of collapsing to content width. */
+.trigger.block {
+  display: block;
+  width: 100%;
+}
+
 /* A disabled control is inert: the browser swallows pointer events over it, so
    the wrapper would miss the `pointerleave` and the bubble would stay stuck.
    Let pointer events fall through to the trigger span (the event surface). */

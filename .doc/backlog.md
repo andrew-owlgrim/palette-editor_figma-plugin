@@ -62,3 +62,5 @@ Audit all fields (`NameInput`, `StopInput`, `CountStepper`, `ChannelInput`,
 **Why**
 
 **Consider** making OKLCH instead of LCH input model but with adjusted color picker and input values in order to humanize inputs (particularly inconvenient saturation axis)
+
+## lightness axis direction when import

@@ -63,7 +63,7 @@ export const DEFAULT_COLLECTION_NAME = 'Palette'
 
 export const DEFAULT_SETTINGS: Settings = {
   blendingColorModel: 'oklch',
-  toneAxisDirection: 'light-dark',
+  toneAxisDirection: 'dark-light',
   collectionName: DEFAULT_COLLECTION_NAME,
 }
 
@@ -163,7 +163,10 @@ interface PaletteActions {
   addKeyColors: (hexes: string[]) => void
   // Append whole PaletteColors (full gradients) imported from another palette,
   // deep-cloned with fresh ids. One update = one undo step. Duplicates allowed.
-  importPaletteColors: (colors: PaletteColor[]) => void
+  // `sourceDirection` is the tone direction the source ramps were authored in;
+  // when it differs from the active palette's, the gradients are mirrored so the
+  // ramp keeps its light/dark orientation in the target.
+  importPaletteColors: (colors: PaletteColor[], sourceDirection: ToneAxisDirection) => void
   // Replace one key color with a fresh random-but-harmonious one (name kept).
   rerollKeyColor: (id: string) => void
   removeKeyColor: (id: string) => void
@@ -273,10 +276,18 @@ export const usePaletteStore = create<PaletteStore>()(
 
       // Import whole PaletteColors from another palette (deep-cloned with fresh
       // ids) as one undo step. Collisions in name/value are allowed — no dedupe.
-      importPaletteColors: (colors) =>
-        set((state) => ({
-          keyColors: [...state.keyColors, ...colors.map(clonePaletteColor)],
-        })),
+      // Stop positions are authored relative to the SOURCE tone direction, so on
+      // a direction mismatch we mirror them (position -> 1 - position) — the same
+      // flip `setToneAxisDirection` applies — to preserve the ramp's orientation.
+      importPaletteColors: (colors, sourceDirection) =>
+        set((state) => {
+          const flip = sourceDirection !== state.settings.toneAxisDirection
+          const imported = colors.map((c) => {
+            const cloned = clonePaletteColor(c)
+            return flip ? { ...cloned, stops: mirrorStops(cloned.stops) } : cloned
+          })
+          return { keyColors: [...state.keyColors, ...imported] }
+        }),
 
       // Reroll: a fresh color harmonious with the *other* key colors (self
       // excluded so it can move into a gap). Rebuilds the default gradient but

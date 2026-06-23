@@ -23,7 +23,7 @@ import { useOverlayScrollbars } from '@/hooks/useOverlayScrollbars'
 import { usePaletteStore } from '@/store'
 import { useExtractorStore } from '@/store/extractor'
 import { useSelectionStore } from '@/store/selection'
-import type { PaletteColor } from '@/types'
+import type { PaletteColor, ToneAxisDirection } from '@/types'
 import styles from './KeyColorsSection.css'
 
 export function KeyColorsSection() {
@@ -68,9 +68,9 @@ export function KeyColorsSection() {
     addKeyColors(selectionFills)
   }
 
-  function handleImport(colors: PaletteColor[]) {
+  function handleImport(colors: PaletteColor[], direction: ToneAxisDirection) {
     scrollToEndRef.current = true
-    importPaletteColors(colors)
+    importPaletteColors(colors, direction)
   }
 
   function handleDragStart(event: DragStartEvent) {

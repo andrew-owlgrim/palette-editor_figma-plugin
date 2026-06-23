@@ -78,6 +78,15 @@ palette and isn't part of any palette's data or undo history).
   evenly distributed by default, each editable — unset steps show their auto value
   as a placeholder, and a custom value re-distributes the unset steps around it.
   The grid shows one row of swatches per key color.
+  - **Pick a shade (Ctrl/Cmd + click a swatch)** — holding Ctrl/Cmd turns the grid
+    into a picker (the row stops toggling the editor; a tooltip shows the swatch's
+    hex). With **nothing selected** on the canvas, the click **copies the hex** to
+    the clipboard; with a **selection**, it **applies the color** to each selected
+    layer's top fill — like Figma's native eyedropper ("I"), replacing it with a
+    fully-opaque solid (alpha reset to 100%). If that shade has already been
+    exported as a **variable** (Create variables), the fill is **bound to the
+    variable** instead of a raw color, so the layer tracks the token. A snackbar
+    confirms either action.
 - **Gradient editor** — clicking a key color's swatch row expands an inline editor:
   a gradient track with a draggable handle per stop (drag to move, press empty
   track to add a stop, up to 7 total), and a card per stop to recolor it, pin or
@@ -89,10 +98,13 @@ palette and isn't part of any palette's data or undo history).
     (the rest are grouped under *Palette settings*). A user-global preference:
     switching it recomputes every key color's channel values into the new model
     (across all palettes) without touching any color and without an undo entry.
-  - **Blending color model** — `RGB` / `HSL` / `OKLCH` / `LCH`. The model the shade
-    gradient is interpolated in (palette-scoped).
+  - **Blending color model** — `RGB` / `HSL` / `OKLCH`. The model the shade
+    gradient is interpolated in (palette-scoped). (LCH is no longer offered, but
+    palettes already saved with it still render.)
   - **Tone axis direction** — `Dark → Light` / `Light → Dark`. Which end of the
-    shade scale (step 0) is light; flipping it mirrors every gradient.
+    shade scale (step 0) is light; flipping it mirrors every gradient. Defaults to
+    **Dark → Light**. (Imported ramps from a palette with the opposite direction
+    are mirrored on import so they keep their light/dark orientation.)
   - **Variable collection** — name of the Figma variable collection that **Create
     variables** writes into (default "Palette").
 - **Export** (footer bar). Each button briefly confirms with a "… created" label

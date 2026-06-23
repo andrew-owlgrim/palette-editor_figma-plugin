@@ -13,11 +13,13 @@ const INPUT_MODEL_OPTIONS: Array<SegmentedControlOption> = [
   { value: 'lch', children: 'LCH' },
 ]
 
+// LCH is intentionally omitted from the picker — `BlendingColorModel` still
+// includes it and gradient.ts still resolves it, so palettes saved with LCH keep
+// rendering; it just can't be newly selected.
 const BLENDING_MODEL_OPTIONS: Array<SegmentedControlOption> = [
   { value: 'rgb', children: 'RGB' },
   { value: 'hsl', children: 'HSL' },
   { value: 'oklch', children: 'OKLCH' },
-  { value: 'lch', children: 'LCH' },
 ]
 
 const TONE_AXIS_OPTIONS: Array<SegmentedControlOption> = [

@@ -56,6 +56,21 @@
   background-color: var(--figma-color-bg-hover);
 }
 
+/* Pick mode (ctrl/cmd held): the row is no longer a button — it doesn't toggle or
+   highlight on hover; individual swatches show a copy cursor instead (the press
+   copies the hex, or applies it to the canvas selection). */
+.row.pickMode {
+  cursor: default;
+}
+
+.row.pickMode:hover {
+  background-color: transparent;
+}
+
+.row.pickMode .swatch {
+  cursor: copy;
+}
+
 /* Expanded block: the active swatch row + its gradient editor share one
    full-bleed secondary panel (children carry the inset). */
 .expanded {

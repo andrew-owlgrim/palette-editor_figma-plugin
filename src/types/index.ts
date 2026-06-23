@@ -205,10 +205,24 @@ export interface SetActivePaletteHandler extends EventHandler {
   handler: (data: { documentId: string; ref: ActivePaletteRef }) => void
 }
 
-// main -> UI: deduped solid fills (hex) of the directly-selected nodes.
+// main -> UI: deduped solid fills (hex) of the directly-selected nodes, plus the
+// raw selection size (so the UI can branch on "is anything selected" even when a
+// selected node has no solid fill — e.g. apply-color-to-selection).
 export interface SelectionFillsHandler extends EventHandler {
   name: 'SELECTION_FILLS'
-  handler: (data: { fills: string[] }) => void
+  handler: (data: { fills: string[]; count: number }) => void
+}
+
+// UI -> main: apply a color to the current selection's top fill (eyedropper-
+// like). Each selected node that has a fills list gets its last (top-painted)
+// paint FULLY replaced with a fully-opaque solid — alpha reset to 100% like the
+// native "I" (fills beneath kept); `figma.*` lives only in main. If a COLOR
+// variable named `variableName` exists in the `collectionName` collection (i.e.
+// this swatch was already exported as a variable), the fill is BOUND to it
+// instead of carrying a raw color, so the layer tracks the token.
+export interface ApplyFillToSelectionHandler extends EventHandler {
+  name: 'APPLY_FILL_TO_SELECTION'
+  handler: (data: { hex: string; variableName: string; collectionName: string }) => void
 }
 
 // UI -> main: ask for the current selection fills (sent once on UI mount, since
@@ -216,6 +230,13 @@ export interface SelectionFillsHandler extends EventHandler {
 export interface RequestSelectionFillsHandler extends EventHandler {
   name: 'REQUEST_SELECTION_FILLS'
   handler: () => void
+}
+
+// UI -> main: show a Figma snackbar (`figma.notify`). `figma.*` lives only in the
+// main thread, so transient toasts (e.g. "Copied #RRGGBB") are routed through here.
+export interface NotifyHandler extends EventHandler {
+  name: 'NOTIFY'
+  handler: (data: { message: string; error?: boolean }) => void
 }
 
 // --- Export ----------------------------------------------------------------

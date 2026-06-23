@@ -13,6 +13,7 @@ Detail lives in `.doc/` — keep this file thin, don't duplicate.
 - [.doc/tasks.md](.doc/tasks.md) — active work + status (volatile)
 - [.doc/backlog.md](.doc/backlog.md) — deferred / potential tasks (no owner or deadline)
 - [.doc/decisions.md](.doc/decisions.md) — decision log (ADR; strategic only — see below)
+- [.doc/changelog.md](.doc/changelog.md) — user-facing release notes (version / date / what changed)
 
 **Keeping `decisions.md` minimal:** it records *strategic* decisions and
 implementation forks only — the **why** behind a non-obvious choice (incl.
@@ -45,6 +46,7 @@ superseded/removed entry to a one-line tombstone instead of deleting it.
 - `src/components/PaletteSwitcher/` — header palette switcher + delete-confirm modal (ADR-026)
 - `src/utils/storage.ts` — `clientStorage` (user library) / `sharedPluginData` (document) wrappers
 - `src/utils/image.ts` — decode + downsample File/Blob/URL → pixels for extraction (ADR-025)
+- `src/utils/clipboard.ts` — copy text (Clipboard API + textarea fallback) for shade-pick copy (ADR-030)
 - `src/hooks/useOverlayScrollbars.ts` — Figma-themed overlay scrollbars hook (ADR-029)
 - `src/styles/scrollbars.css` — global OverlayScrollbars theme (`!`-prefixed global import)
 - `src/types/` — domain types + ambient `*.svg` / `*.css` declarations

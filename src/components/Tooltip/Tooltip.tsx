@@ -21,16 +21,29 @@ const ARROW_OFFSET = Math.sqrt(2 * ARROW_SIZE ** 2) / 2 + 2
 const OPPOSITE_SIDE = { top: 'bottom', bottom: 'top', left: 'right', right: 'left' } as const
 
 interface TooltipProps {
-  content: string
+  // Plain text, or rich content (e.g. a bold hex over a hint line).
+  content: ComponentChildren
   // Preferred side. `flip`/`shift` move it automatically when it would overflow.
   placement?: Placement
+  // Hover dwell before showing (ms). Override for snappier surfaces.
+  delay?: number
+  // Make the trigger span a block that fills its parent (instead of the default
+  // inline-flex hug) — needed when the wrapped child is a grid/flex item that
+  // must stretch to its cell (e.g. a shade swatch).
+  block?: boolean
   // Single trigger (e.g. an IconButton), wrapped in an inline-flex span that is
   // both the positioning reference and the event surface — so it works even when
   // the trigger is `disabled` (the CSS neutralizes the inert child's events).
   children: ComponentChildren
 }
 
-export function Tooltip({ content, placement = 'bottom', children }: TooltipProps) {
+export function Tooltip({
+  content,
+  placement = 'bottom',
+  delay = SHOW_DELAY_MS,
+  block = false,
+  children,
+}: TooltipProps) {
   const triggerRef = useRef<HTMLSpanElement>(null)
   const floatingRef = useRef<HTMLDivElement>(null)
   const arrowRef = useRef<HTMLDivElement>(null)
@@ -62,7 +75,7 @@ export function Tooltip({ content, placement = 'bottom', children }: TooltipProp
     }
     const timer = setTimeout(() => {
       if (suppressedRef.current === false) setHoverShown(true)
-    }, SHOW_DELAY_MS)
+    }, delay)
     function leave() {
       // A real leave both re-arms a fresh hover and lifts a click's suppression.
       suppressedRef.current = false
@@ -82,7 +95,7 @@ export function Tooltip({ content, placement = 'bottom', children }: TooltipProp
       document.removeEventListener('pointermove', onPointerMove)
       window.removeEventListener('blur', leave)
     }
-  }, [hovering])
+  }, [hovering, delay])
 
   // Position while open and keep it positioned (scroll/resize) via autoUpdate.
   // `strategy: 'fixed'` lets it escape card overflow. `computePosition` is async,
@@ -132,7 +145,7 @@ export function Tooltip({ content, placement = 'bottom', children }: TooltipProp
   return (
     <span
       ref={triggerRef}
-      class={styles.trigger}
+      class={block ? `${styles.trigger} ${styles.block}` : styles.trigger}
       onPointerEnter={() => setHovering(true)}
       // A press dismisses and suppresses this hover; only a real leave + re-enter
       // shows it again. `hovering` stays true so the leave guard keeps watching.

@@ -1,13 +1,1 @@
-{
-  "api": "1.0.0",
-  "editorType": ["figma"],
-  "id": "1649854703752968667",
-  "name": "Palette Editor",
-  "main": "build/main.js",
-  "ui": "build/ui.js",
-  "documentAccess": "dynamic-page",
-  "networkAccess": {
-    "allowedDomains": ["*"],
-    "reasoning": "Fetch user-supplied image links to extract colors from them."
-  }
-}
+{"api":"1.0.0","editorType":["figma"],"id":"1649854703752968667","name":"Palette Editor","main":"build/main.js","ui":"build/ui.js","documentAccess":"dynamic-page","networkAccess":{"allowedDomains":["*"],"reasoning":"Fetch user-supplied image links to extract colors from them."}}

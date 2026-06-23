@@ -1,10 +1,12 @@
 import { emit, on, showUI } from '@create-figma-plugin/utilities'
 import type {
+  ApplyFillToSelectionHandler,
   CreateStylesHandler,
   CreateVariablesHandler,
   DeleteUserPaletteHandler,
   ExportPalette,
   ExportSwatchesHandler,
+  NotifyHandler,
   PersistedDocument,
   RequestSelectionFillsHandler,
   RequestUserLibraryHandler,
@@ -148,6 +150,56 @@ async function createStyles({ colors }: ExportPalette): Promise<void> {
   figma.notify(`Wrote ${count} paint styles`)
 }
 
+// Find the local COLOR variable named `name` inside the collection named
+// `collectionName` (the same name scheme `createVariables` exports under), or null
+// if either the collection or the variable doesn't exist yet.
+async function findColorVariable(collectionName: string, name: string): Promise<Variable | null> {
+  const collections = await figma.variables.getLocalVariableCollectionsAsync()
+  const collection = collections.find((c) => c.name === collectionName)
+  if (collection === undefined) return null
+  const variables = await figma.variables.getLocalVariablesAsync('COLOR')
+  return variables.find((v) => v.variableCollectionId === collection.id && v.name === name) ?? null
+}
+
+// Apply a color to the TOP fill of every selected node that has a fills list
+// (eyedropper-like). Figma paints the last entry of `fills` on top, so the last
+// paint is FULLY replaced — matching the native eyedropper ("I"), which resets the
+// paint entirely (alpha back to 100%, no carried-over opacity / blend mode). The
+// fills beneath are kept; mixed/empty fills collapse to a single solid. One plugin
+// call = one Figma undo step.
+//
+// If this swatch was already exported as a variable (a COLOR variable of the same
+// `{name}/{step}` exists in the target collection), the new paint is BOUND to that
+// variable so the layer references the token instead of a raw color.
+async function applyFillToSelection(
+  hex: string,
+  variableName: string,
+  collectionName: string,
+): Promise<void> {
+  const color = hexToRgb(hex)
+  const variable = await findColorVariable(collectionName, variableName)
+  const base: SolidPaint = { type: 'SOLID', color }
+  const paint: SolidPaint =
+    variable === null ? base : figma.variables.setBoundVariableForPaint(base, 'color', variable)
+
+  let applied = 0
+  for (const node of figma.currentPage.selection) {
+    if (!('fills' in node)) continue
+    const current = node.fills
+    const next: Paint[] =
+      current === figma.mixed || current.length === 0 ? [paint] : [...current.slice(0, -1), paint]
+    node.fills = next
+    applied += 1
+  }
+  figma.notify(
+    applied === 0
+      ? 'Select a layer to apply the color'
+      : variable !== null
+        ? `Applied variable to ${applied} ${applied === 1 ? 'layer' : 'layers'}`
+        : `Applied to ${applied} ${applied === 1 ? 'layer' : 'layers'}`,
+  )
+}
+
 // Visible solid fills of the directly-selected nodes, as hex, deduped (order
 // preserved). Nested layers are not traversed — selection is top-level only.
 function getSelectionFills(): string[] {
@@ -211,6 +263,17 @@ export default function () {
   on<SetActivePaletteHandler>('SET_ACTIVE_PALETTE', ({ documentId, ref }) => {
     void setActivePalette(documentId, ref)
   })
+  on<NotifyHandler>('NOTIFY', ({ message, error }) => {
+    figma.notify(message, error === true ? { error: true } : undefined)
+  })
+  on<ApplyFillToSelectionHandler>(
+    'APPLY_FILL_TO_SELECTION',
+    ({ hex, variableName, collectionName }) => {
+      void applyFillToSelection(hex, variableName, collectionName).catch((error: unknown) => {
+        figma.notify(`Couldn't apply the color: ${String(error)}`, { error: true })
+      })
+    },
+  )
 
   on<ExportSwatchesHandler>('EXPORT_SWATCHES', exportSwatches)
   on<CreateVariablesHandler>('CREATE_VARIABLES', (palette) => {
@@ -225,7 +288,10 @@ export default function () {
   })
 
   function sendSelectionFills() {
-    emit<SelectionFillsHandler>('SELECTION_FILLS', { fills: getSelectionFills() })
+    emit<SelectionFillsHandler>('SELECTION_FILLS', {
+      fills: getSelectionFills(),
+      count: figma.currentPage.selection.length,
+    })
   }
   figma.on('selectionchange', sendSelectionFills)
   figma.on('currentpagechange', sendSelectionFills)

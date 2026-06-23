@@ -508,7 +508,11 @@ Builds on ADR-026 (the library makes "another palette" a real concept).
   (color + every stop, remapping `keyStopId`) as **one undo step**. **Duplicates are
   allowed** (§6) — no dedupe on name/value. Stop positions are imported **verbatim**
   (they read in the source's blending model until the ramp is next edited) — the
-  literal "import the whole PaletteColor".
+  literal "import the whole PaletteColor". **Exception — tone direction:** stop
+  positions are authored relative to the source's `toneAxisDirection`, so on a
+  mismatch with the active palette `importPaletteColors` **mirrors** the gradients
+  (the same `position -> 1 - position` flip `setToneAxisDirection` applies),
+  preserving each ramp's light/dark orientation in the target.
 - **Consequence/constraint:** preview + import share `toRuntimeColors`; the dropdown
   is bespoke dark chrome (the shared `Popover` is light), kept local to
   `PaletteImport`. No new bridge messages — it's all UI-thread over existing
@@ -548,3 +552,44 @@ Builds on ADR-026 (the library makes "another palette" a real concept).
 - **Consequence/constraint:** a new runtime dependency; bars are Chromium-only overlay
   (fine — the plugin runs only in Figma's Chromium iframe). DnD Kit auto-scroll on the
   key-color list still works (native scroll underneath).
+
+## ADR-030 — Pick a shade (Ctrl/Cmd + click): copy hex / apply to selection
+
+Extends ADR-016 (canvas selection ⇄ palette) to the **Shades** grid: the generated
+shades were display-only, but they're the colors users actually want to grab.
+
+- **Context:** users want to lift a generated shade out of the plugin — onto the
+  clipboard, or straight onto selected layers like Figma's native eyedropper ("I",
+  which plugins can't invoke).
+- **Decision — one modifier gesture, context-branched.** Holding **Ctrl/Cmd** puts
+  the swatch grid into a *pick mode* (the row stops acting as the editor toggle, a
+  per-swatch tooltip shows the **bold hex**). A press then either:
+  - **no canvas selection → copy the hex** to the clipboard, or
+  - **selection present → apply the color** to each selected node, via a new
+    `APPLY_FILL_TO_SELECTION { hex }` bridge message (fill edits need `figma.*`).
+  Both confirm with a Figma **snackbar** through a new generic `NOTIFY { message,
+  error? }` message (the UI can't call `figma.notify` itself). Selection awareness
+  needed the raw selection size, so `SELECTION_FILLS` gained a `count` field.
+- **Eyedropper parity (apply):** replace the **top** fill (last entry of `fills`,
+  which Figma paints on top), **fully** — a fresh fully-opaque solid, **not** a
+  recolor: opacity/alpha resets to 100% and blend mode drops, matching native "I".
+  Fills beneath are kept; mixed/empty collapse to a single solid. All selected
+  nodes with a `fills` list in one undo step.
+- **Bind to the token when it exists:** the apply also carries the swatch's
+  `{name}/{step}` variable name + the target collection. If a matching COLOR
+  variable already exists (the swatch was exported via Create variables), main
+  **binds** the new paint to it (`setBoundVariableForPaint`) instead of a raw
+  color, so the layer tracks the design token; otherwise it stays a plain solid.
+  Same name scheme as `createVariables`, so the two stay in sync by construction.
+- **Two iframe-focus workarounds** (verify in-app, they're sandbox-specific):
+  1. The action fires on **`pointerdown`, not `click`**, reading the modifier off
+     the event — Figma swallows the first *click* into an unfocused iframe (for
+     focus), so click-based copy needed a second press; pointerdown lands first try.
+  2. The *visual* pick mode is synced from **both** window `keydown`/`keyup` (only
+     delivered when focused) **and** a section `pointermove` (so the affordance
+     appears when entering straight from the canvas, before the iframe has focus).
+- **Consequence/constraint:** Ctrl/Cmd + click is now overloaded on the shade grid
+  (copy vs apply) — disambiguated solely by whether a selection exists, surfaced in
+  the tooltip's second line. New util `src/utils/clipboard.ts` (async Clipboard API
+  + hidden-textarea `execCommand` fallback for the sandbox). The two new bridge
+  messages (`NOTIFY`, `APPLY_FILL_TO_SELECTION`) are generic enough to reuse.

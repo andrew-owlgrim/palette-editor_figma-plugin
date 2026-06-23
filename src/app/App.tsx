@@ -70,8 +70,8 @@ export function App({ initialDocument, documentId = '', documentName = '' }: App
 
   // Track canvas-selection fills (ephemeral, kept out of the palette store).
   useEffect(() => {
-    const unsubscribe = on<SelectionFillsHandler>('SELECTION_FILLS', ({ fills }) => {
-      useSelectionStore.getState().setFills(fills)
+    const unsubscribe = on<SelectionFillsHandler>('SELECTION_FILLS', ({ fills, count }) => {
+      useSelectionStore.getState().setSelection({ fills, count })
     })
     emit<RequestSelectionFillsHandler>('REQUEST_SELECTION_FILLS')
     return unsubscribe

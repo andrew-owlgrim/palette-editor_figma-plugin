@@ -37,10 +37,12 @@ main.ts  ──showUI(opts,{initialDocument, documentId, documentName})──▶
    ├──── on('SAVE_USER_PREFS') ◀── emit(..., { prefs })           (input-model change)
    ├──── on('SET_ACTIVE_PALETTE') ◀── emit(..., { documentId, ref }) (palette switch)
    ├──── on('REQUEST_SELECTION_FILLS') ◀── emit(...)               (once, on UI mount)
-   ├──── emit('SELECTION_FILLS', { fills }) ──▶ on(...)            (selection / page change)
+   ├──── emit('SELECTION_FILLS', { fills, count }) ──▶ on(...)     (selection / page change)
+   ├──── on('APPLY_FILL_TO_SELECTION') ◀── emit(..., { hex })      (ctrl+click swatch w/ selection)
    ├──── on('EXPORT_SWATCHES') ◀── emit('EXPORT_SWATCHES', palette)    (Footer button)
    ├──── on('CREATE_VARIABLES') ◀── emit('CREATE_VARIABLES', palette)  (Footer button)
-   └──── on('CREATE_STYLES') ◀── emit('CREATE_STYLES', palette)        (Footer button)
+   ├──── on('CREATE_STYLES') ◀── emit('CREATE_STYLES', palette)        (Footer button)
+   └──── on('NOTIFY') ◀── emit('NOTIFY', { message, error? })          (figma.notify snackbar, e.g. copy hex)
 ```
 
 **Two palettes (ADR-026/027):** the editor edits exactly one *active* palette —
@@ -387,10 +389,20 @@ Lets the user pull colors off the canvas into the palette.
   `REQUEST_SELECTION_FILLS` ping the UI sends on mount, to avoid racing its
   listener), `main.ts` reads the **top-level** selection (`figma.currentPage.selection`,
   not nested layers), takes each node's visible `SOLID` fills, converts to hex,
-  **dedupes** (order-preserving), and `emit('SELECTION_FILLS', { fills })`.
+  **dedupes** (order-preserving), and `emit('SELECTION_FILLS', { fills, count })`
+  (`count` = raw selection size, so the UI can branch on "is anything selected"
+  even when a selected node has no solid fill).
 - **Hold (UI):** a separate **ephemeral** store `src/store/selection.ts`
-  (`{ fills }`, plain zustand) — deliberately outside the palette store so it
-  never enters undo history or persistence.
+  (`{ fills, count }`, plain zustand) — deliberately outside the palette store so
+  it never enters undo history or persistence.
+- **Apply back (UI → main):** Ctrl/Cmd + click on a Shades swatch with a selection
+  `emit('APPLY_FILL_TO_SELECTION', { hex, variableName, collectionName })`; `main.ts`
+  replaces each selected node's **top** fill (last in `fills`) with a fully-opaque
+  solid (eyedropper "I" parity — alpha reset, fills beneath kept). If a COLOR
+  variable named `variableName` (`{name}/{step}`) already exists in that collection
+  (the swatch was exported as a token), the fill is **bound to it** instead of
+  carrying a raw color. With no selection the same gesture copies the hex instead
+  (clipboard + an `emit('NOTIFY', …)` snackbar). See ADR-030.
 - **Use:** a per-card **eyedropper** (in the card's action row, shown only when
   `fills` is non-empty) sets the key stop's color to `fills[0]` via `setStopFromHex`;
   an **add-matching** button by "+" (disabled when no fills) appends every fill

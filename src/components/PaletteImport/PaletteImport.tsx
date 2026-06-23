@@ -5,21 +5,31 @@ import { Tooltip } from '@/components/Tooltip/Tooltip'
 import { useOverlayScrollbars } from '@/hooks/useOverlayScrollbars'
 import { keyColorOf } from '@/color/gradient'
 import { colorToHex } from '@/color/models'
-import { toRuntimeColors } from '@/store'
+import { DEFAULT_SETTINGS, toRuntimeColors } from '@/store'
 import { useLibraryStore } from '@/store/library'
-import type { PaletteColor } from '@/types'
+import type { PaletteColor, ToneAxisDirection } from '@/types'
 import styles from './PaletteImport.css'
 
 interface ImportSource {
   key: string
   name: string
   colors: PaletteColor[]
+  // Tone direction the source ramps were authored in — passed on import so a
+  // mismatch with the active palette mirrors the gradients (keeps orientation).
+  direction: ToneAxisDirection
 }
 
 interface PaletteImportProps {
   // Append the chosen whole PaletteColors into the active palette (the caller
-  // wires the scroll-to-new-card + the store action).
-  onImport: (colors: PaletteColor[]) => void
+  // wires the scroll-to-new-card + the store action). `direction` is the source's
+  // tone direction, used to orient the imported ramps in the target.
+  onImport: (colors: PaletteColor[], direction: ToneAxisDirection) => void
+}
+
+// Tone direction of a source body, with the same default-merge `toRuntimeColors`
+// applies, so legacy bodies missing the setting resolve to the current default.
+function sourceDirection(settings?: { toneAxisDirection?: ToneAxisDirection }): ToneAxisDirection {
+  return settings?.toneAxisDirection ?? DEFAULT_SETTINGS.toneAxisDirection
 }
 
 // Bring whole color ramps in from another palette (ADR-028): an icon button opens
@@ -45,12 +55,14 @@ export function PaletteImport({ onImport }: PaletteImportProps) {
     const list: ImportSource[] = []
     if (activeRef.kind !== 'document') {
       const colors = toRuntimeColors(documentBody)
-      if (colors.length > 0) list.push({ key: 'document', name: documentName, colors })
+      const direction = sourceDirection(documentBody.settings)
+      if (colors.length > 0) list.push({ key: 'document', name: documentName, colors, direction })
     }
     for (const palette of palettes) {
       if (activeRef.kind === 'user' && activeRef.id === palette.id) continue
       const colors = toRuntimeColors(palette)
-      if (colors.length > 0) list.push({ key: palette.id, name: palette.name, colors })
+      const direction = sourceDirection(palette.settings)
+      if (colors.length > 0) list.push({ key: palette.id, name: palette.name, colors, direction })
     }
     return list
   }, [activeRef, documentBody, documentName, palettes])
@@ -92,7 +104,7 @@ export function PaletteImport({ onImport }: PaletteImportProps) {
   function submit() {
     if (source === null) return
     const picked = source.colors.filter((c) => selected.has(c.id))
-    if (picked.length > 0) onImport(picked)
+    if (picked.length > 0) onImport(picked, source.direction)
     setSource(null)
   }
 

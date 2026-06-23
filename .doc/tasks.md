@@ -1,9 +1,24 @@
 # Tasks
 
-Volatile working state. Last updated: 2026-06-19.
+Volatile working state. Last updated: 2026-06-23.
 
 ## Done
 
+- **Pick a shade — Ctrl/Cmd + click** (ADR-030): the Shades grid is now a picker
+  while Ctrl/Cmd is held (row stops toggling; per-swatch tooltip shows the bold
+  hex). No selection → **copy hex** to clipboard; selection present → **apply** the
+  color to each selected node's **top** fill, fully (fresh opaque solid, alpha reset
+  — eyedropper "I" parity); if a `{name}/{step}` COLOR **variable** already exists in
+  the target collection, the fill is **bound to it** instead of a raw color. New
+  bridge messages `APPLY_FILL_TO_SELECTION { hex, variableName, collectionName }` +
+  generic `NOTIFY { message, error? }` (Figma snackbar); `SELECTION_FILLS` gained
+  `count`. Fires on `pointerdown` (lands on the first press into an unfocused
+  iframe); new `utils/clipboard.ts` (Clipboard API + textarea fallback); `Tooltip`
+  gained rich `content` + `delay` + `block`.
+- **Smaller fixes:** default **tone axis direction → Dark → Light**; **import** now
+  mirrors a ramp when the source palette's direction differs (keeps orientation,
+  ADR-028); **LCH removed** from the blending-model picker (type + rendering kept
+  for already-saved palettes).
 - **Overlay scrollbars** (ADR-029): all five scroll regions (main body, extractor
   grid, import grid, shades, key-color list) use **OverlayScrollbars** — thin,
   floating, auto-hiding, Figma-themed bars that don't shift layout. Shared
