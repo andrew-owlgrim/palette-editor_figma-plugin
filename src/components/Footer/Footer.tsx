@@ -27,6 +27,7 @@ export function Footer() {
   const shades = usePaletteStore((s) => s.shades)
   const blending = usePaletteStore((s) => s.settings.blendingColorModel)
   const collectionName = usePaletteStore((s) => s.settings.collectionName)
+  const stepNaming = usePaletteStore((s) => s.settings.stepNaming)
 
   // Which button is currently showing its "done" state (null = all idle).
   const [flashed, setFlashed] = useState<ExportKind | null>(null)
@@ -37,7 +38,7 @@ export function Footer() {
   const empty = keyColors.length === 0
 
   function run(kind: ExportKind, send: (palette: ReturnType<typeof buildExportPalette>) => void) {
-    send(buildExportPalette(keyColors, shades, blending, collectionName))
+    send(buildExportPalette(keyColors, shades, blending, collectionName, stepNaming))
     setFlashed(kind)
     clearTimeout(timer.current)
     timer.current = setTimeout(() => setFlashed(null), FEEDBACK_MS)

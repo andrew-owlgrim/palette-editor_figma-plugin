@@ -12,6 +12,7 @@ import type {
   PersistedDocument,
   PersistedPaletteColor,
   Settings,
+  StepNaming,
   ToneAxisDirection,
 } from '@/types'
 import { channelsToColor, colorToChannels, hexToColor } from '@/color/models'
@@ -65,6 +66,7 @@ export const DEFAULT_SETTINGS: Settings = {
   blendingColorModel: 'oklch',
   toneAxisDirection: 'dark-light',
   collectionName: DEFAULT_COLLECTION_NAME,
+  stepNaming: 'value',
 }
 
 function defaultSteps(): Array<number | null> {
@@ -194,6 +196,8 @@ interface PaletteActions {
   setBlendingColorModel: (model: BlendingColorModel) => void
   // Set the target variable-collection name (empty reverts to the default).
   setCollectionName: (name: string) => void
+  // Choose how exported shade steps are named (value vs 1-based index).
+  setStepNaming: (naming: StepNaming) => void
   // Flip which end of the scale is light; mirrors every gradient's stops.
   setToneAxisDirection: (direction: ToneAxisDirection) => void
   // Resize the shade scale (clamped to [MIN, MAX]); grows/trims from the end.
@@ -224,6 +228,7 @@ export const usePaletteStore = create<PaletteStore>()(
           blendingColorModel: merged.blendingColorModel,
           toneAxisDirection: merged.toneAxisDirection,
           collectionName: merged.collectionName,
+          stepNaming: merged.stepNaming,
         }
         const model = inputColorModel()
         set({
@@ -506,6 +511,12 @@ export const usePaletteStore = create<PaletteStore>()(
           const next = name.trim() === '' ? DEFAULT_COLLECTION_NAME : name.trim()
           if (state.settings.collectionName === next) return {}
           return { settings: { ...state.settings, collectionName: next } }
+        }),
+
+      setStepNaming: (naming) =>
+        set((state) => {
+          if (state.settings.stepNaming === naming) return {}
+          return { settings: { ...state.settings, stepNaming: naming } }
         }),
 
       // Flipping the tone direction mirrors every gradient (position -> 1 - pos),

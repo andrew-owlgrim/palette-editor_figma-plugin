@@ -359,7 +359,11 @@ Amends ADR-011/ADR-014.
   **collection** (`Settings.collectionName`, default `"Palette"`, created if
   missing); styles are flat (no collection). Variables/styles are **updated in
   place by name** (look up existing, else create) so re-export is idempotent, not
-  duplicating. Swatches are wrapped in a frame (named after the collection) using
+  duplicating. The **step segment is configurable** (`Settings.stepNaming`, ADR-031):
+  `value` = the resolved 0..1000 tone value (default), `index` = the 1-based step
+  number. `buildExportPalette` resolves it once into each shade's `label` via
+  `color/shades.ts` `stepLabel`, and the apply-swatch gesture builds the same label,
+  so applied fills bind to the same-named variable the export created. Swatches are wrapped in a frame (named after the collection) using
   Figma's **native GRID auto-layout** (`SWATCH_SIZE` 40, `SWATCH_GAP` 8; row = key
   color, col = shade), each rectangle set to `FILL`×`FILL` (after append) so it
   tracks its cell; placed at the viewport center and selected.
@@ -593,3 +597,32 @@ shades were display-only, but they're the colors users actually want to grab.
   the tooltip's second line. New util `src/utils/clipboard.ts` (async Clipboard API
   + hidden-textarea `execCommand` fallback for the sandbox). The two new bridge
   messages (`NOTIFY`, `APPLY_FILL_TO_SELECTION`) are generic enough to reuse.
+
+## ADR-031 — Eyedropper Shift binds a variable; Ctrl applies raw (+ step naming)
+
+Refines ADR-030's apply gesture and ADR-024's export naming; both shipped together.
+
+- **Context:** ADR-030 made Ctrl/Cmd + click on a shade *always* bind to the
+  `{name}/{step}` variable when one existed. Figma's own eyedropper later split this:
+  a plain pick lays down the **raw color**, **Shift** binds the variable if present.
+  Users expect the plugin to mirror that muscle memory.
+- **Decision (apply):** the swatch pick now sends `bindVariable` on
+  `APPLY_FILL_TO_SELECTION` — `event.shiftKey` at pointerdown. Ctrl+click → raw
+  color (main skips the variable lookup entirely); Ctrl+**Shift**+click → bind to the
+  matching COLOR variable if it exists, else raw. The pick-mode tooltip's action line
+  now reads "apply color / ⇧ apply variable" when a selection is present. Copy-hex
+  (no selection) is unaffected by Shift.
+- **Decision (step naming):** the shared `{name}/{step}` token segment became a
+  palette setting `Settings.stepNaming` (`value` | `index`, default `value`, undoable
+  like the other palette-scoped settings). `value` keeps the resolved 0..1000 tone
+  value; `index` uses the **1-based** step number (`Red/1`, `Red/2`, …). One helper,
+  `color/shades.ts` `stepLabel(naming, value, index)`, is the single source both
+  export (`buildExportPalette` → `ExportShade.label`, consumed by swatches/variables/
+  styles in main) and the apply gesture call, so a fill always binds to the same name
+  the export wrote. Exposed as a "Step naming" SegmentedControl in palette settings.
+- **Consequence/constraint:** `ExportShade` now carries a resolved `label`; main uses
+  `shade.label` (not `shade.step`) for every `{name}/{…}` it writes. `stepNaming`
+  defaults into `DEFAULT_SETTINGS` and merges in `hydrate`, so older files load as
+  `value` (no name change on existing palettes). Index labels are unique by
+  construction; value labels can still collide if two steps resolve equal (unchanged
+  from ADR-024).

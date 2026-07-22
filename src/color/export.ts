@@ -1,8 +1,14 @@
 import { buildGradientSampler } from '@/color/gradient'
 import { colorToHex } from '@/color/models'
 import { resolveName } from '@/color/naming'
-import { resolveSteps, SHADE_MAX } from '@/color/shades'
-import type { BlendingColorModel, ExportPalette, PaletteColor, ShadeScale } from '@/types'
+import { resolveSteps, SHADE_MAX, stepLabel } from '@/color/shades'
+import type {
+  BlendingColorModel,
+  ExportPalette,
+  PaletteColor,
+  ShadeScale,
+  StepNaming,
+} from '@/types'
 
 // Resolve the palette into a flat, Figma-ready form: each key color's effective
 // name + its color at every shade step. Mirrors the swatch grid exactly (same
@@ -13,6 +19,7 @@ export function buildExportPalette(
   shades: ShadeScale,
   blending: BlendingColorModel,
   collectionName: string,
+  stepNaming: StepNaming,
 ): ExportPalette {
   const resolved = resolveSteps(shades.steps)
   return {
@@ -21,7 +28,11 @@ export function buildExportPalette(
       const sample = buildGradientSampler(pc.stops, blending)
       return {
         name: resolveName(pc),
-        shades: resolved.map((step) => ({ step, hex: colorToHex(sample(step / SHADE_MAX)) })),
+        shades: resolved.map((step, i) => ({
+          step,
+          hex: colorToHex(sample(step / SHADE_MAX)),
+          label: stepLabel(stepNaming, step, i),
+        })),
       }
     }),
   }

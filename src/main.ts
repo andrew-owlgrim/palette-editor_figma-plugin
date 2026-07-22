@@ -86,7 +86,7 @@ function exportSwatches({ collectionName, colors }: ExportPalette): void {
     for (let col = 0; col < color.shades.length; col += 1) {
       const shade = color.shades[col]
       const rect = figma.createRectangle()
-      rect.name = `${color.name}/${shade.step}`
+      rect.name = `${color.name}/${shade.label}`
       rect.fills = [{ type: 'SOLID', color: hexToRgb(shade.hex) }]
       frame.appendChildAt(rect, row, col)
       // Fill the grid cell rather than holding a fixed size, so the swatches
@@ -121,7 +121,7 @@ async function createVariables({ collectionName, colors }: ExportPalette): Promi
   let count = 0
   for (const color of colors) {
     for (const shade of color.shades) {
-      const name = `${color.name}/${shade.step}`
+      const name = `${color.name}/${shade.label}`
       const variable = byName.get(name) ?? figma.variables.createVariable(name, collection, 'COLOR')
       variable.setValueForMode(modeId, hexToRgb(shade.hex))
       count += 1
@@ -140,7 +140,7 @@ async function createStyles({ colors }: ExportPalette): Promise<void> {
   let count = 0
   for (const color of colors) {
     for (const shade of color.shades) {
-      const name = `${color.name}/${shade.step}`
+      const name = `${color.name}/${shade.label}`
       const style = byName.get(name) ?? figma.createPaintStyle()
       style.name = name
       style.paints = [{ type: 'SOLID', color: hexToRgb(shade.hex) }]
@@ -168,16 +168,19 @@ async function findColorVariable(collectionName: string, name: string): Promise<
 // fills beneath are kept; mixed/empty fills collapse to a single solid. One plugin
 // call = one Figma undo step.
 //
-// If this swatch was already exported as a variable (a COLOR variable of the same
-// `{name}/{step}` exists in the target collection), the new paint is BOUND to that
-// variable so the layer references the token instead of a raw color.
+// When `bindVariable` is set and this swatch was already exported as a variable
+// (a COLOR variable of the same `{name}/{step}` exists in the target collection),
+// the new paint is BOUND to that variable so the layer references the token
+// instead of a raw color. Mirrors Figma's native eyedropper: a plain pick lays
+// down the raw color, ⇧ binds the variable if one exists (ADR-031).
 async function applyFillToSelection(
   hex: string,
   variableName: string,
   collectionName: string,
+  bindVariable: boolean,
 ): Promise<void> {
   const color = hexToRgb(hex)
-  const variable = await findColorVariable(collectionName, variableName)
+  const variable = bindVariable ? await findColorVariable(collectionName, variableName) : null
   const base: SolidPaint = { type: 'SOLID', color }
   const paint: SolidPaint =
     variable === null ? base : figma.variables.setBoundVariableForPaint(base, 'color', variable)
@@ -268,10 +271,12 @@ export default function () {
   })
   on<ApplyFillToSelectionHandler>(
     'APPLY_FILL_TO_SELECTION',
-    ({ hex, variableName, collectionName }) => {
-      void applyFillToSelection(hex, variableName, collectionName).catch((error: unknown) => {
-        figma.notify(`Couldn't apply the color: ${String(error)}`, { error: true })
-      })
+    ({ hex, variableName, collectionName, bindVariable }) => {
+      void applyFillToSelection(hex, variableName, collectionName, bindVariable).catch(
+        (error: unknown) => {
+          figma.notify(`Couldn't apply the color: ${String(error)}`, { error: true })
+        },
+      )
     },
   )
 

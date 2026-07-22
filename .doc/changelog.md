@@ -3,6 +3,21 @@
 User-facing release notes for Palette Editor. Newest first. Dates are `YYYY-MM-DD`.
 Versions follow [Semantic Versioning](https://semver.org/): MAJOR.MINOR.PATCH.
 
+## [1.1.0] — 2026-07-21
+
+### Added
+
+- **Step naming: value or step number.** A new **Step naming** toggle in palette
+  settings controls how each shade is named when you export. **Value** (the default,
+  and how it worked before) names shades by their tone value — `Red/500`. **Step
+  number** names them by position instead — `Red/1`, `Red/2`, … This applies to
+  created variables, styles, and canvas swatches alike.
+- **Apply a shade's variable with Shift.** When you Ctrl/Cmd + click a shade to apply
+  it to selected layers, holding **Shift** as well links the layer to that shade's
+  **variable** (if you've exported it) — matching Figma's own eyedropper. Without
+  Shift, Ctrl/Cmd + click now always drops the **raw color**. (Previously it linked
+  the variable automatically whenever one existed.)
+
 ## [1.0.1] — 2026-06-23
 
 ### Added

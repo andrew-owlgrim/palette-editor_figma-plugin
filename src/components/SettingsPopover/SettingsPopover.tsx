@@ -4,7 +4,7 @@ import { useState } from 'preact/hooks'
 import { DEFAULT_COLLECTION_NAME, usePaletteStore } from '@/store'
 import { useLibraryStore } from '@/store/library'
 import { usePrefsStore } from '@/store/prefs'
-import type { BlendingColorModel, InputColorModel, ToneAxisDirection } from '@/types'
+import type { BlendingColorModel, InputColorModel, StepNaming, ToneAxisDirection } from '@/types'
 import styles from './SettingsPopover.css'
 
 const INPUT_MODEL_OPTIONS: Array<SegmentedControlOption> = [
@@ -25,6 +25,11 @@ const BLENDING_MODEL_OPTIONS: Array<SegmentedControlOption> = [
 const TONE_AXIS_OPTIONS: Array<SegmentedControlOption> = [
   { value: 'dark-light', children: 'Dark → Light' },
   { value: 'light-dark', children: 'Light → Dark' },
+]
+
+const STEP_NAMING_OPTIONS: Array<SegmentedControlOption> = [
+  { value: 'value', children: 'Value' },
+  { value: 'index', children: 'Step number' },
 ]
 
 // Collection-name field. While focused it edits a local draft and commits on
@@ -61,8 +66,10 @@ export function SettingsPopover() {
   const setInputColorModel = useLibraryStore((s) => s.setInputColorModel)
   const blendingColorModel = usePaletteStore((s) => s.settings.blendingColorModel)
   const toneAxisDirection = usePaletteStore((s) => s.settings.toneAxisDirection)
+  const stepNaming = usePaletteStore((s) => s.settings.stepNaming)
   const setBlendingColorModel = usePaletteStore((s) => s.setBlendingColorModel)
   const setToneAxisDirection = usePaletteStore((s) => s.setToneAxisDirection)
+  const setStepNaming = usePaletteStore((s) => s.setStepNaming)
 
   return (
     <div class={styles.settings}>
@@ -99,6 +106,16 @@ export function SettingsPopover() {
               options={TONE_AXIS_OPTIONS}
               value={toneAxisDirection}
               onValueChange={(value) => setToneAxisDirection(value as ToneAxisDirection)}
+            />
+          </div>
+        </div>
+        <div class={styles.field}>
+          <div class={styles.label}>Variable step naming</div>
+          <div class={styles.control}>
+            <SegmentedControl
+              options={STEP_NAMING_OPTIONS}
+              value={stepNaming}
+              onValueChange={(value) => setStepNaming(value as StepNaming)}
             />
           </div>
         </div>

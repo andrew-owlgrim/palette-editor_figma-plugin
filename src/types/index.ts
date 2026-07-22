@@ -10,6 +10,10 @@ export type BlendingColorModel = 'rgb' | 'hsl' | 'oklch' | 'lch'
 // Which end of the shade scale (step 0) is light vs dark. 'light-dark' = step 0
 // is light, the scale darkens as the step value grows (the tailwind convention).
 export type ToneAxisDirection = 'light-dark' | 'dark-light'
+// How the `{name}/{step}` token's step segment is labelled: 'value' = the
+// resolved 0..1000 tone value (e.g. `Red/500`), 'index' = the 1-based step
+// number (e.g. `Red/1`). Used for export names + the apply-swatch variable name.
+export type StepNaming = 'value' | 'index'
 
 // Raw input-field values keyed by channel id, interpreted in the CURRENT
 // inputColorModel. e.g. hsl -> { h: '210', s: '50', l: '50' }
@@ -63,6 +67,8 @@ export interface Settings {
   toneAxisDirection: ToneAxisDirection
   // Name of the Figma variable collection that "Create variables" writes into.
   collectionName: string
+  // How shade steps are named in exported tokens (value vs 1-based index).
+  stepNaming: StepNaming
 }
 
 // The shade scale: one entry per shade step, a target value on the 0..1000 tone
@@ -216,13 +222,22 @@ export interface SelectionFillsHandler extends EventHandler {
 // UI -> main: apply a color to the current selection's top fill (eyedropper-
 // like). Each selected node that has a fills list gets its last (top-painted)
 // paint FULLY replaced with a fully-opaque solid — alpha reset to 100% like the
-// native "I" (fills beneath kept); `figma.*` lives only in main. If a COLOR
-// variable named `variableName` exists in the `collectionName` collection (i.e.
-// this swatch was already exported as a variable), the fill is BOUND to it
-// instead of carrying a raw color, so the layer tracks the token.
+// native "I" (fills beneath kept); `figma.*` lives only in main. When
+// `bindVariable` is set and a COLOR variable named `variableName` exists in the
+// `collectionName` collection (i.e. this swatch was already exported as a
+// variable), the fill is BOUND to it instead of carrying a raw color, so the
+// layer tracks the token; otherwise the raw color is applied.
 export interface ApplyFillToSelectionHandler extends EventHandler {
   name: 'APPLY_FILL_TO_SELECTION'
-  handler: (data: { hex: string; variableName: string; collectionName: string }) => void
+  handler: (data: {
+    hex: string
+    variableName: string
+    collectionName: string
+    // When true, bind the fill to the `{name}/{step}` COLOR variable if it
+    // exists (⇧-modified pick); when false, always apply the raw color. Mirrors
+    // Figma's native eyedropper where Shift binds a variable (ADR-031).
+    bindVariable: boolean
+  }) => void
 }
 
 // UI -> main: ask for the current selection fills (sent once on UI mount, since
@@ -244,10 +259,13 @@ export interface NotifyHandler extends EventHandler {
 // samplers the swatch grid uses) and hands it to the main thread, which is the
 // only place `figma.*` (canvas nodes, variables, styles) exists.
 
-// One resolved shade: its tone-axis step value (0..1000) and display hex.
+// One resolved shade: its tone-axis step value (0..1000), display hex, and the
+// token segment label (`value` or `index` scheme, per settings) used to build
+// the `{name}/{label}` variable / style / rectangle name.
 export interface ExportShade {
   step: number
   hex: string
+  label: string
 }
 
 // One key color's resolved ramp: effective name + every shade.

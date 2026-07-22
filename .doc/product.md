@@ -83,10 +83,11 @@ palette and isn't part of any palette's data or undo history).
     hex). With **nothing selected** on the canvas, the click **copies the hex** to
     the clipboard; with a **selection**, it **applies the color** to each selected
     layer's top fill — like Figma's native eyedropper ("I"), replacing it with a
-    fully-opaque solid (alpha reset to 100%). If that shade has already been
-    exported as a **variable** (Create variables), the fill is **bound to the
-    variable** instead of a raw color, so the layer tracks the token. A snackbar
-    confirms either action.
+    fully-opaque solid (alpha reset to 100%). Ctrl/Cmd alone applies the **raw
+    color**; adding **Shift** (Ctrl/Cmd + Shift + click) instead **binds the fill to
+    that shade's variable** when it's been exported (Create variables), so the layer
+    tracks the token — mirroring Figma's own eyedropper. A snackbar confirms either
+    action.
 - **Gradient editor** — clicking a key color's swatch row expands an inline editor:
   a gradient track with a draggable handle per stop (drag to move, press empty
   track to add a stop, up to 7 total), and a card per stop to recolor it, pin or
@@ -105,6 +106,10 @@ palette and isn't part of any palette's data or undo history).
     shade scale (step 0) is light; flipping it mirrors every gradient. Defaults to
     **Dark → Light**. (Imported ramps from a palette with the opposite direction
     are mirrored on import so they keep their light/dark orientation.)
+  - **Step naming** — `Value` / `Step number`. How each shade's name segment is
+    written on export: `Value` uses the tone value (`Red/500`, the default),
+    `Step number` uses the 1-based position (`Red/1`). Applies to variables, styles,
+    and swatches (palette-scoped).
   - **Variable collection** — name of the Figma variable collection that **Create
     variables** writes into (default "Palette").
 - **Export** (footer bar). Each button briefly confirms with a "… created" label

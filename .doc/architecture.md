@@ -396,13 +396,14 @@ Lets the user pull colors off the canvas into the palette.
   (`{ fills, count }`, plain zustand) — deliberately outside the palette store so
   it never enters undo history or persistence.
 - **Apply back (UI → main):** Ctrl/Cmd + click on a Shades swatch with a selection
-  `emit('APPLY_FILL_TO_SELECTION', { hex, variableName, collectionName })`; `main.ts`
-  replaces each selected node's **top** fill (last in `fills`) with a fully-opaque
-  solid (eyedropper "I" parity — alpha reset, fills beneath kept). If a COLOR
-  variable named `variableName` (`{name}/{step}`) already exists in that collection
-  (the swatch was exported as a token), the fill is **bound to it** instead of
-  carrying a raw color. With no selection the same gesture copies the hex instead
-  (clipboard + an `emit('NOTIFY', …)` snackbar). See ADR-030.
+  `emit('APPLY_FILL_TO_SELECTION', { hex, variableName, collectionName, bindVariable })`;
+  `main.ts` replaces each selected node's **top** fill (last in `fills`) with a
+  fully-opaque solid (eyedropper "I" parity — alpha reset, fills beneath kept).
+  `bindVariable` is `event.shiftKey`: only when **Shift** is also held (and a COLOR
+  variable named `variableName` (`{name}/{step}`) already exists in that collection)
+  is the fill **bound to it**; plain Ctrl/Cmd applies the raw color. With no
+  selection the same gesture copies the hex instead (clipboard + an
+  `emit('NOTIFY', …)` snackbar). See ADR-030 / ADR-031.
 - **Use:** a per-card **eyedropper** (in the card's action row, shown only when
   `fills` is non-empty) sets the key stop's color to `fills[0]` via `setStopFromHex`;
   an **add-matching** button by "+" (disabled when no fills) appends every fill
@@ -420,8 +421,10 @@ Three exports in the `Footer` bar. The split mirrors the thread model: the UI
 does all the color math, the main thread does all the `figma.*`.
 
 - **Resolve (UI):** `color/export.ts` `buildExportPalette(keyColors, shades,
-  blending, collectionName)` produces a flat `ExportPalette`
-  (`{ collectionName, colors: [{ name, shades: [{ step, hex }] }] }`), reusing the
+  blending, collectionName, stepNaming)` produces a flat `ExportPalette`
+  (`{ collectionName, colors: [{ name, shades: [{ step, hex, label }] }] }`) — where
+  `label` is the token segment from `stepLabel` (value vs 1-based index, per
+  `Settings.stepNaming`; ADR-031), reusing the
   *same* `resolveSteps` + per-color `buildGradientSampler` + `colorToHex` +
   `resolveName` as the swatch grid — so an export equals what's on screen.
 - **Dispatch (UI):** `Footer` builds the payload on click and `emit`s one of

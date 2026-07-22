@@ -1,3 +1,5 @@
+import type { StepNaming } from '@/types'
+
 // The shade scale lives on the 0..1000 tone axis (tailwind 1/1000 format).
 export const SHADE_MAX = 1000
 export const DEFAULT_SHADE_COUNT = 11
@@ -34,6 +36,14 @@ export function resolveSteps(steps: Array<number | null>): number[] {
     }
   }
   return out
+}
+
+// The token segment for a shade's `{name}/{label}` name. 'value' uses the
+// resolved 0..1000 tone value; 'index' uses the 1-based step number. Shared by
+// export (variables / styles / swatch frame) and the apply-swatch variable name,
+// so applied fills bind to the same-named variable the export created.
+export function stepLabel(naming: StepNaming, resolvedValue: number, index: number): string {
+  return naming === 'index' ? String(index + 1) : String(resolvedValue)
 }
 
 // Clamp a user-entered step value into the gap between its nearest SET neighbors

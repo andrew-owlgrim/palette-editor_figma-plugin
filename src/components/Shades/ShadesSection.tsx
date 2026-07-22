@@ -9,7 +9,7 @@ import { useOverlayScrollbars } from '@/hooks/useOverlayScrollbars'
 import { colorToHex } from '@/color/models'
 import { buildGradientSampler } from '@/color/gradient'
 import { resolveName } from '@/color/naming'
-import { resolveSteps, SHADE_MAX } from '@/color/shades'
+import { resolveSteps, SHADE_MAX, stepLabel } from '@/color/shades'
 import { usePaletteStore } from '@/store'
 import { useSelectionStore } from '@/store/selection'
 import { copyText } from '@/utils/clipboard'
@@ -25,6 +25,9 @@ export function ShadesSection() {
   // Target variable collection (settings) — lets apply bind a fill to an already-
   // exported `{name}/{step}` COLOR variable instead of a raw color.
   const collectionName = usePaletteStore((s) => s.settings.collectionName)
+  // How the `{name}/{step}` token is labelled — must match the export so an
+  // applied fill binds to the same-named variable.
+  const stepNaming = usePaletteStore((s) => s.settings.stepNaming)
   // Non-zero when something is selected on the canvas — switches the modifier
   // gesture from "copy hex" to "apply color to the selection's first fill".
   const selectionCount = useSelectionStore((s) => s.count)
@@ -69,13 +72,16 @@ export function ShadesSection() {
   // Fired from `pointerdown` (not `click`) so the very first press lands even when
   // the iframe isn't focused yet — Figma swallows that focusing click, but the
   // pointer event still carries the modifier state. `variableName` (`{name}/{step}`)
-  // lets main bind the fill to that token if it's already been exported.
-  function pickSwatch(hex: string, variableName: string) {
+  // lets main bind the fill to that token when `bindVariable` is set (⇧ held) —
+  // matching Figma's native eyedropper, where a plain pick lays down the raw color
+  // and Shift binds the variable if one exists.
+  function pickSwatch(hex: string, variableName: string, bindVariable: boolean) {
     if (selectionCount > 0) {
       emit<ApplyFillToSelectionHandler>('APPLY_FILL_TO_SELECTION', {
         hex,
         variableName,
         collectionName,
+        bindVariable,
       })
     } else {
       void copyHex(hex)
@@ -165,7 +171,11 @@ export function ShadesSection() {
                         onPointerDown={(event) => {
                           if (event.metaKey || event.ctrlKey) {
                             event.stopPropagation()
-                            pickSwatch(hex, `${row.name}/${resolved[i]}`)
+                            pickSwatch(
+                              hex,
+                              `${row.name}/${stepLabel(stepNaming, resolved[i], i)}`,
+                              event.shiftKey,
+                            )
                           }
                         }}
                       />
@@ -180,7 +190,14 @@ export function ShadesSection() {
                           <Fragment>
                             <strong>{hex.toUpperCase()}</strong>
                             <br />
-                            {selectionCount > 0 ? 'apply to selection' : 'copy hex'}
+                            {selectionCount > 0 ? (
+                              <Fragment>
+                                apply color
+                                <br />⇧ apply variable
+                              </Fragment>
+                            ) : (
+                              'copy hex'
+                            )}
                           </Fragment>
                         }
                       >
